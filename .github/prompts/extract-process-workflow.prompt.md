@@ -1,6 +1,6 @@
-# 天工 LCA 工作流（Codex 分阶段指引）
+# 天工 LCA 数据抽取工作流指引
 
-本说明汇总工作流相关信息：模块职责、分阶段脚本、核心数据结构与关键校验要点，帮助 Codex 在多阶段协作中保持一致行为。
+本说明聚焦数据抽取与流程编排：梳理分阶段脚本、核心模块、数据结构与关键校验要点，支持 Codex 在业务执行中保持统一策略。
 
 ## 0. 执行约定（避免无效迭代）
 - **先读原始资料**：动手前快速梳理论文原文或 `clean_text`，确认章节结构、数据表与功能单位。
@@ -61,7 +61,7 @@ uv run python scripts/stage6_finalize.py \
   --validation artifacts/stage5_validation.json
 ```
 
-- `stage3_align_flows.py` 若检测到 `.secrets/secrets.toml` 中的 OpenAI 凭据，会自动启用 LLM 评分评估 MCP 返回的 10 个候选；否则退回本地相似度匹配。脚本现仅写出 `stage3_alignment.json`，未命中的交换不会落盘，CLI 日志会提示跳过的数量。
+- `stage3_align_flows.py` 若检测到 `.secrets/secrets.toml` 中的 OpenAI 凭据，会自动启用 LLM 评分评估 MCP 返回的 10 个候选；否则退回本地相似度匹配。脚本会在对齐前校验每个交换是否同时具备 `exchangeName` 与 `FlowSearch hints`，缺项时默认中断（仅可用 `--allow-missing-hints` 放行提示缺失）。当缺少 `exchangeName` 时，会优先从 `FlowSearch hints` 的多语言同义词中自动补足。输出的 `stage3_alignment.json` 同步携带 `process_id`、`matched_flows`、`unmatched_flows` 与 `origin_exchanges`，并在 CLI 中打印各流程的命中统计。
 
 ## 3. 核心数据结构
 ```python
@@ -113,7 +113,9 @@ class WorkflowResult:
 ## 4. Flow Search
 - `FlowSearchClient` 使用 `MCPToolClient.invoke_json_tool` 访问远程 `Search_flows_Tool`，根据 `FlowQuery` 自动构造检索上下文。
 - `FlowQuery.description` 直接来自 Stage 2 `exchange.generalComment` 的 `FlowSearch hints` 字符串；保持字段顺序与分隔符一致，便于 QueryFlow Service 提取多语言同义词和物性信息。
-- `stage3_align_flows.py` 是唯一入口：不要人工在 Stage 2 直接拼接 `referenceToFlowDataSet`，而是让 Stage 3 读取 Stage 2 的 `process_blocks` 并触发检索。
+- 远程 `tiangong_lca_remote` 工具内部已接入 LLM，会基于整段 `generalComment` 自动扩展同义词并执行全文 + 语义混合检索，因此无需在 Stage 3 手动再造额外提示。
+- 只要 `generalComment` 内容完整且精炼，就可以信任 `tiangong_lca_remote` 返回的候选；重点是从结果中挑选最贴合的流并补写必要说明。
+- `stage3_align_flows.py` 是唯一入口：不要在 Stage 2 直接拼接 `referenceToFlowDataSet`，而是让 Stage 3 读取 Stage 2 的 `process_blocks` 并触发检索。
 - 运行 Stage 3 前先快速抽样核查：选 1~2 个交换量搭建 `FlowQuery` 调试，确认服务是否返回候选（避免整批跑空）。
 - 每个交换量至少发起一次 MCP 检索；如果 3 次以内仍失败，才将该交换标记为 `UnmatchedFlow` 并写入原因。
 - 采用指数退避重试；捕获 `httpx.HTTPStatusError` / `McpError`，必要时剥离上下文以规避 413/5xx。
@@ -123,6 +125,7 @@ class WorkflowResult:
 
 ## 5. Flow Alignment
 - 每个流程块的交换量在独立线程提交检索任务，聚合 `matched_flows` 与 `origin_exchanges`；未命中只在日志中计数提醒。
+- Stage 3 脚本会先检查 Stage 2 生成的 `exchangeName` 以及 `generalComment` 中的 `FlowSearch hints:` 前缀，必要时从同义词字段推断缺失名称，避免缺乏语义标签的交换直接进入 MCP 检索。
 - 匹配成功时写回 `referenceToFlowDataSet`，失败则保留原始交换量并记录原因。
 - 过程中输出 `flow_alignment.start`、`flow_alignment.exchange_failed` 等结构化日志，便于诊断。
 
