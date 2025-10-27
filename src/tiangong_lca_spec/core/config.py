@@ -192,8 +192,17 @@ def _read_toml(path: Path) -> dict[str, Any]:
 
 
 def _extract_section(data: dict[str, Any], *candidates: str) -> dict[str, Any] | None:
+    """Return the first matching dict section, ignoring case differences."""
+    if not data:
+        return None
+    # Build a lower-case lookup so secrets sections can be written with
+    # different capitalisations (e.g. TianGong_LCA_Remote vs tiangong_lca_remote).
+    lower_lookup = {key.lower(): value for key, value in data.items() if isinstance(value, dict)}
     for key in candidates:
         section = data.get(key)
+        if isinstance(section, dict):
+            return section
+        section = lower_lookup.get(key.lower())
         if isinstance(section, dict):
             return section
     return None

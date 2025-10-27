@@ -1,0 +1,73 @@
+# 写入字段需求（统一格式）
+#
+# 使用方式：
+# 1. `ui_label` 请直接填写界面上看到的完整中文标签（建议包含上级分组，以免重名）。
+# 2. 多语言字段分为 `zh` / `en`；若后续扩展其他语种，可按需追加。
+# 3. 引用字段只需提供 UUID，脚本会自动调用远端数据库补齐 `shortDescription`、`version`、`uri`。
+# 4. `global_updates` 适用于账号内所有 process；`process_updates` 可针对特定流程（按 UI “名称” 匹配）。
+
+global_updates:
+  - ui_label: "建模信息——数据切断和完整性原则"
+    value:
+      zh: "本清单遵循了既定的切断规则。在完整性方面，本数据集已包含所有已知的、对系统功能有显著贡献的物质流、能量流和排放流。"
+      en: "This inventory follows established cut-off rules. Regarding completeness, this dataset includes all known elementary flows, energy flows, and emissions that significantly contribute to the system's function."
+  - ui_label: "管理信息——数据集委托方"
+    value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+  - ui_label: "管理信息——数据集生成者/建模者"
+    value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+  - ui_label: "管理信息——数据录入人"
+    value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+  - ui_label: "管理信息——数据集拥有者"
+    value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+  - ui_label: "管理信息——版权？"
+    value: "否"
+  - ui_label: "管理信息——许可类型"
+    value: "对所有用户和适用类型免费"
+  
+process_updates:
+  - process_name: "交流电生产; 火力发电"
+    fields:
+      - ui_label: "过程信息——混合和位置类型"
+        value:
+          zh: "技术组合"
+          en: "technology mix"
+      - ui_label: "过程信息——定量产品或过程属性"
+        value:
+          zh: "35-330kV"
+          en: "35-330kV"
+      - ui_label: "建模信息——使用的数据来源"
+        value: "c9e46fd5-061c-4c0d-a597-85bd24c2f7ee"
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "此过程是一个“混合过程”，代表特定区域内所有大型火力发电技术的纯发电组合。“35-330kV”表示此组合中的火电厂通常是接入高压电网的。它综合了燃煤、燃油和燃气发电技术，按照它们各自在总火电发电量（kWh）中的贡献份额进行加权平均。"
+          en: "This is a \"mix process\" representing the pure generation mix of all large-scale thermal power technologies in a specific region. The \"35-330kV\" indicates these are typically plants that connect to the high-voltage grid. It aggregates coal, oil, and gas generation technologies, weighted by their respective shares of the total thermal electricity generation (kWh)."
+      - ui_label: "管理信息——数据集格式"
+        value: "a97a0155-0234-4b87-b4ce-a45da52f2a40"
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用作LCA数据库建模的基础输入。它是构建更高级别的“电力生产组合”（即包含所有发电技术的总组合）或“电力消费混合”数据集的上游输入。此数据集未包含损失的电网电力。"
+          en: "To be used as a foundational input (building block) for LCA database modeling. It serves as an upstream input for building higher-level 'production mix' (i.e., the total mix of all technologies) or 'electricity consumption mix' (which includes grid losses) datasets. This dataset does not include the loss of grid electricity."
+  - process_name: "交流电生产; 电力混合; 生产组合; 1-35 kV"
+    fields:
+      - ui_label: "过程信息——混合和位置类型"
+        value:
+          zh: "技术组合"
+          en: "technology mix"
+      - ui_label: "过程信息——定量产品或过程属性"
+        value:
+          zh: "35-330kV"
+          en: "35-330kV"
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "此过程代表特定地理区域在特定年份的纯发电组合。它综合了所有发电技术（如火力发电、水力发电、核能发电、风力发电和太阳能发电）按其发电量（kWh）份额加权平均的结果。"
+          en: "This process represents the pure generation mix for a specific geographical area and year. It aggregates the weighted average of all generation technologies (e.g., thermal, hydro, nuclear, wind, and solar power) based on their generation (kWh) shares."
+      - ui_label: "管理信息——数据集格式"
+        value: "a97a0155-0234-4b87-b4ce-a45da52f2a40"
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用作LCA数据库建模的基础输入。它是构建“电力消耗混合数据集”（这些数据集包含电网损失和基础设施）的上游输入。此数据集不应被终端用户（如工厂、家庭）直接用作电力输入，因其未能代表用户在电网特定电压水平上实际获得的、已包含损失的电力。"
+          en: "To be used as a foundational input (building block) for LCA database modeling. It serves as the upstream input for building 'electricity consumption mix' datasets (which do include grid losses and infrastructure). This dataset should not be used directly as an electricity input by an end-user (e.g., factory, home), as it does not represent the electricity actually received at a specific voltage level, which includes losses."
+    exchange_updates:
+      - match: "all"
+        ui_label: "数据推导类型/状态"
+        value: "测量"
