@@ -159,4 +159,6 @@ uv.lock
 .ruff_cache/
 
 artifacts/
+
+test.md
 secret_key.md
