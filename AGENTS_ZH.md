@@ -6,7 +6,7 @@
 - **目标**：实现天工 LCA Spec Coding 工作流的端到端自动化，涵盖论文清洗、流程抽取、交换量对齐、数据合并、TIDAS 校验与最终交付。
 - **核心目录**：
   - `src/tiangong_lca_spec/`：工作流服务、MCP 客户端、数据模型与日志工具。
-  - `scripts/`：`stage1_preprocess.py` ~ `stage7_publish.py` 等阶段化 CLI，以及回归入口 `run_test_workflow.py`。
+  - `scripts/`：`stage1_preprocess.py` ~ `stage4_publish.py` 等阶段化 CLI，以及回归入口 `run_test_workflow.py`。
   - `.github/prompts/`：对 Codex 的提示词说明，其中 `extract-process-workflow.prompt.md` 专门描述流程抽取任务。
 - **协作接口**：标准工作流依赖 `.secrets/secrets.toml` 中配置的 OpenAI、tiangong LCA Remote 与 TIDAS 验证服务。首次接入时请先完成凭据校验，再批量运行 Stage 3+。
 - **更多参考**：各阶段产物要求、对齐策略和异常处理见 `.github/prompts/extract-process-workflow.prompt.md`；若需补充分类或地理信息，可查看 `scripts/list_*_children.py` 提供的辅助 CLI。
@@ -28,10 +28,11 @@
 2. 编辑 `.secrets/secrets.toml`：
    - `[OPENAI]`：`API_KEY`, `MODEL`（默认 `gpt-5` 可覆盖）。
    - `[tiangong_lca_remote]`：`url`, `service_name`, `tool_name`, `api_key`。
-   - `[tidas_data_validate]`：`url`, `tool_name`, 可选 `api_key`。
 3. `api_key` 字段直接写入明文 token，框架会自动带上 `Bearer` 前缀。
 4. 建议在跑 Stage 3 前，先用 1~2 个样例交换调用 `FlowSearchService` 进行连通性自测（可参考工作流提示文档中的 Python 片段）。
 - 若运维已预先配置 `.secrets/secrets.toml`，Codex 默认直接使用，无需在执行前反复确认。仅当脚本报出缺少凭据或连接失败时，再检查本地配置。
+
+本地 TIDAS 校验改为 `uv run tidas-validate -i artifacts` CLI，由 Stage 3 自动执行，无需额外的 MCP 凭据。
 
 ## 4. 质量保障与自检
 - 在修改 Python 源代码后，按序执行：
