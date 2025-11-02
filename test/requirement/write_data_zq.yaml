@@ -1,0 +1,293 @@
+# 写入字段需求（风电领域）
+# 依据 test.md 抽取的字段说明，采用与 write_data.yaml 一致的结构。
+
+global_updates:
+  - ui_label: "建模信息——数据切断和完整性原则"
+    value:
+      zh: "确保涵盖对环境影响贡献最大的核心材料和能源流，并合理排除贡献极小的辅助材料。"
+      en: "Ensures coverage of core materials and energy flows that contribute most significantly to the environmental impact, while reasonably excluding marginal auxiliary materials."
+  - ui_label: "管理信息——数据集委托方"
+    value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+  - ui_label: "管理信息——数据集生成者/建模者"
+    value: "6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb"
+  - ui_label: "管理信息——数据录入人"
+    value: "6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb"
+  - ui_label: "管理信息——数据集拥有者"
+    value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+  - ui_label: "管理信息——数据集格式"
+    value: "a97a0155-0234-4b87-b4ce-a45da52f2a40"
+  - ui_label: "管理信息——版权？"
+    value: "否"
+  - ui_label: "管理信息——许可类型"
+    value: "对所有用户和适用类型免费"
+
+process_updates:
+  - process_name: "转子制造; 风力发电机转子; 在工厂"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风机叶片、轮毂等部件制造中原材料的输入和主要的能源消耗。"
+          en: "Describes the raw material inputs and major energy consumption involved in the manufacturing of turbine blades, hub, and related components."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "概括了复合材料成型和金属铸造等关键生产技术。"
+          en: "Summarizes key production technologies like composite material forming and metal casting."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于分析转子系统制造阶段对环境的总负荷，以及在风机全生命周期评估中提供可靠的投入数据。"
+          en: "Intended for analyzing the total environmental burden of the rotor system manufacturing stage and providing reliable input data for the full wind turbine life cycle assessment."
+
+  - process_name: "机舱制造; 风力发电机机舱; 在工厂"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述机舱内传动、发电、控制系统等组件的原材料消耗和工厂生产过程中的能源使用。"
+          en: "Describes the raw material consumption and factory energy use during the production of components within the drivetrain, generator, and control systems of the nacelle."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及精密机械加工、电气元件组装和系统集成等技术环节。"
+          en: "Involves technical aspects such as precision machining, electrical component assembly, and system integration."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "旨在评估机舱的金属和电气材料对环境的潜在影响，为优化设计和供应链选择提供依据。"
+          en: "Intended to assess the potential environmental impact of the nacelle's metal and electrical materials, providing a basis for design optimization and supply chain selection."
+
+  - process_name: "塔筒制造; 风力发电机塔筒; 在工厂; X MW"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述塔筒钢结构的原材料投入，以及在钢材切割、成型、焊接等重工业制造中的能源消耗。"
+          en: "Describes the raw material inputs for the steel tower structure and the energy consumption in heavy industrial manufacturing processes like steel cutting, forming, and welding."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "概括了钢板的卷制、多段焊接和防腐处理等核心工艺。"
+          en: "Summarizes core processes such as steel plate rolling, multi-segment welding, and anti-corrosion treatment."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于分析不同塔筒尺寸和材料对风电场整体环境足迹的影响，支持高度和结构设计优化。"
+          en: "Intended for analyzing the impact of different tower dimensions and materials on the overall environmental footprint of the wind farm, supporting height and structural design optimization."
+
+  - process_name: "风力发电机组制造; 陆/海上风力发电机组; 在工厂; X MW"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述转子、机舱、塔筒等大部件运至总装厂后，最终集成过程的能耗与辅助材料消耗。"
+          en: "Describes the energy and auxiliary material consumption from the final integration process after the major components (rotor, nacelle, tower sections) arrive at the assembly plant."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "概括了部件吊装、连接、系统调试等集成组装环节。"
+          en: "Summarizes integration steps like component hoisting, connection, and system commissioning."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "旨在评估风机生产末端的环境负荷，通常在生命周期评估中作为零部件制造之后的独立步骤。"
+          en: "Intended for assessing the environmental burden of the final stage of turbine production, typically modeled as a separate step following component manufacturing in life cycle assessment."
+
+  - process_name: "基础/浮子建设; 风力发电机基础; 在工厂; X MW"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风机基础（陆上混凝土或海上结构）所需的原材料投入、现场施工能耗和废弃物产出。"
+          en: "Describes the raw material inputs, on-site construction energy consumption, and waste output for the turbine foundations (onshore concrete or offshore structures)."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及基础开挖、钢筋捆扎、混凝土浇筑或海上沉桩等工艺。"
+          en: "Involves processes like foundation excavation, rebar tying, concrete pouring, or offshore piling."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于评估土木工程环节对风电场整体环境影响的贡献。"
+          en: "Intended for assessing the contribution of the civil engineering phase to the overall environmental impact of the wind farm."
+
+  - process_name: "风电场建设; 陆/海上风电; X MW"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风机部件现场吊装，以及配套设施（如道路）修建的材料与能源投入。"
+          en: "Describes the material and energy inputs for turbine component on-site hoisting and the construction of ancillary facilities such as access roads."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及重型车辆和起重机的燃油消耗、风机吊装作业及临时设施的搭建。"
+          en: "Involves fuel consumption for heavy vehicles and cranes, turbine hoisting operations, and temporary facility setup."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于评估风电场现场安装活动的环境负荷。"
+          en: "Intended for assessing the environmental burden of wind farm on-site installation activities."
+
+  - process_name: "风电场运维; 陆/海上风电; X MW"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风机运行周期内维护和维修所需的备件更换、润滑油消耗等。"
+          en: "Describes the consumption of spare parts and lubricants required for maintenance and repair over the turbine's operational life."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涵盖定期和非定期维护、叶片检查以及润滑油的生产与废弃处理。"
+          en: "Covers scheduled and unscheduled maintenance, blade inspection, and the production and disposal of lubricants."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于分析风电系统发电的投入产出，并作为计算环境绩效（如能源回报期）的关键基础。"
+          en: "Used for analyzing the input and output of wind power generation and as a critical foundation for calculating environmental performance such as energy payback time."
+
+  - process_name: "阵列间电缆生产; 阵列间电缆，铜; 在工厂; 33 kV"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铜导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (copper conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "导出电缆生产; 导出电缆; 在工厂; 133 kV"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铜导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (copper conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "导出电缆生产; 陆上导出电缆，高压直流; 在工厂"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铜导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (copper conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "阵列间电缆生产; 阵列间电缆，铝; 在工厂; 500 mm2"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铝导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (aluminum conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "阵列间电缆生产; 阵列间电缆，铝; 在工厂; 120 mm2"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铝导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (aluminum conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "电缆生产; 铜; 在工厂; 150 mm"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铜导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (copper conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "导出电缆生产; 海底导出电缆，高压直流; 在工厂"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风电场集电和送出电缆的原材料（铜导体、绝缘层）消耗及其制造过程的能耗。"
+          en: "Describes the raw material consumption (copper conductors, insulation layers) and manufacturing energy use for collection and export cables of the wind farm."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及金属拉丝、绝缘挤塑和铠装等工艺。"
+          en: "Involves processes like metal drawing, insulation extrusion, and armoring."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于单独评估风电场电网连接环节的环境影响。"
+          en: "Intended for separately assessing the environmental impact of the grid connection part of the wind farm."
+
+  - process_name: "箱式变压器制造; 用于49.5MW陆上风电场;"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风机内部或升压站变压器的原材料（钢、铜、绝缘油）投入和装配过程的能源消耗。"
+          en: "Describes the raw material inputs (steel, copper, insulating oil) for transformers within the turbine or substation, and the energy consumption from the assembly process."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及线圈绕制、铁芯叠装和油箱制造等工艺。"
+          en: "Involves processes like coil winding, core stacking, and tank fabrication."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于评估风电场电力转换设备的制造负荷。"
+          en: "Intended for assessing the manufacturing load of power conversion equipment in the wind farm."
+
+  - process_name: "大型变压器制造; 用于49.5MW陆上风电场;"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述风机内部或升压站变压器的原材料（钢、铜、绝缘油）投入和装配过程的能源消耗。"
+          en: "Describes the raw material inputs (steel, copper, insulating oil) for transformers within the turbine or substation, and the energy consumption from the assembly process."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及线圈绕制、铁芯叠装和油箱制造等工艺。"
+          en: "Involves processes like coil winding, core stacking, and tank fabrication."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于评估风电场电力转换设备的制造负荷。"
+          en: "Intended for assessing the manufacturing load of power conversion equipment in the wind farm."
+
+  - process_name: "海上变电站建设; 海上变电站"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述变电站的土建工程（建筑物、基础）和电气设备（开关、母线）的安装过程。"
+          en: "Describes the civil engineering works (buildings, foundations) and the installation process of electrical equipment (switchgear, busbars) for the substation."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及混凝土基础和钢结构施工，以及现场电气设备的安装和调试，背景数据包含建筑材料和电力设备的LCI。"
+          en: "Involves the construction of concrete foundations and steel structures, as well as the on-site installation and commissioning of electrical equipment; background data includes LCI for construction materials and power devices."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于评估风电场并网基础设施的环境影响。"
+          en: "Intended for assessing the environmental impact of the grid integration infrastructure of the wind farm."
+
+  - process_name: "海上变电站建设; 海上变电站; 在工厂"
+    fields:
+      - ui_label: "过程信息——数据集一般性说明"
+        value:
+          zh: "描述变电站的土建工程（建筑物、基础）和电气设备（开关、母线）的安装过程。"
+          en: "Describes the civil engineering works (buildings, foundations) and the installation process of electrical equipment (switchgear, busbars) for the substation."
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "涉及混凝土基础和钢结构施工，以及现场电气设备的安装和调试，背景数据包含建筑材料和电力设备的LCI。"
+          en: "Involves the construction of concrete foundations and steel structures, as well as the on-site installation and commissioning of electrical equipment; background data includes LCI for construction materials and power devices."
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用于评估风电场并网基础设施的环境影响。"
+          en: "Intended for assessing the environmental impact of the grid integration infrastructure of the wind farm."

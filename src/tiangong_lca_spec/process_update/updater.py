@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+from copy import deepcopy
 import re
 import uuid
 from dataclasses import dataclass
@@ -175,6 +176,70 @@ FIELD_MAPPINGS: Mapping[str, FieldMapping] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class RequirementAnalysis:
+    """Summarises whether a dataset already satisfies the YAML requirements."""
+
+    has_global_requirements: bool
+    missing_global_fields: list[str]
+    matched_process_name: str | None
+    matched_process_index: int | None
+    process_fields_defined: bool
+    process_exchanges_defined: bool
+    missing_process_fields: list[str]
+    missing_process_exchanges: list[str]
+    available_process_names: list[str]
+    unsupported_labels: list[str]
+
+    def needs_update(self) -> bool:
+        return bool(
+            self.missing_global_fields
+            or self.missing_process_fields
+            or self.missing_process_exchanges
+        )
+
+    def describe_scope(self) -> str:
+        parts: list[str] = []
+        if self.has_global_requirements:
+            parts.append("global")
+        if self.matched_process_name:
+            if self.matched_process_index:
+                parts.append(
+                    f"process[{self.matched_process_index}] {self.matched_process_name}"
+                )
+            else:
+                parts.append(f"process {self.matched_process_name}")
+        elif self.available_process_names:
+            parts.append("process (no match)")
+        return " + ".join(parts) if parts else "none"
+
+    def describe_missing(self) -> str:
+        segments: list[str] = []
+        if self.missing_global_fields:
+            segments.append(
+                "global fields: " + ", ".join(sorted(set(self.missing_global_fields)))
+            )
+        if self.missing_process_fields:
+            label = self.matched_process_name or "process"
+            segments.append(
+                f"{label} fields: "
+                + ", ".join(sorted(set(self.missing_process_fields)))
+            )
+        if self.missing_process_exchanges:
+            label = self.matched_process_name or "process"
+            segments.append(
+                f"{label} exchanges: "
+                + ", ".join(sorted(set(self.missing_process_exchanges)))
+            )
+        if not segments:
+            segments.append("no missing fields")
+        if self.unsupported_labels:
+            segments.append(
+                "unsupported labels: " + ", ".join(sorted(set(self.unsupported_labels)))
+            )
+        return "; ".join(segments)
+
+
 class ProcessJsonUpdater:
     """Update a process dataset based on parsed requirements."""
 
@@ -193,6 +258,71 @@ class ProcessJsonUpdater:
         self._logger = logger
         self._resolver = resolver
 
+    def analyse(self, dataset: dict, requirements: RequirementBundle) -> RequirementAnalysis:
+        process_dataset = self._get_process_dataset_view(dataset)
+
+        missing_global: list[str] = []
+        missing_process_fields: list[str] = []
+        missing_process_exchanges: list[str] = []
+        unsupported: list[str] = []
+
+        has_global = bool(requirements.global_updates)
+        for requirement in requirements.global_updates:
+            base_label = self._normalise_label(requirement.label)
+            mapping = FIELD_MAPPINGS.get(base_label)
+            if not mapping:
+                unsupported.append(requirement.label)
+                continue
+            if self._field_value_differs(process_dataset, mapping, requirement):
+                missing_global.append(requirement.label)
+
+        available_process_names = [item.process_name.strip() for item in requirements.process_updates]
+        matched_requirement, matched_index = self._match_process_requirement(
+            process_dataset, requirements.process_updates
+        )
+
+        process_fields_defined = False
+        process_exchanges_defined = False
+        if matched_requirement:
+            process_fields_defined = bool(matched_requirement.fields)
+            process_exchanges_defined = bool(matched_requirement.exchange_updates)
+
+            for field_requirement in matched_requirement.fields:
+                base_label = self._normalise_label(field_requirement.label)
+                mapping = FIELD_MAPPINGS.get(base_label)
+                if not mapping:
+                    unsupported.append(field_requirement.label)
+                    continue
+                if self._field_value_differs(process_dataset, mapping, field_requirement):
+                    missing_process_fields.append(field_requirement.label)
+
+            for exchange_requirement in matched_requirement.exchange_updates:
+                if exchange_requirement.label not in self.EXCHANGE_FIELD_KEYS:
+                    unsupported.append(exchange_requirement.label)
+                    continue
+                if self._exchange_value_differs(process_dataset, exchange_requirement):
+                    missing_process_exchanges.append(exchange_requirement.label)
+        else:
+            process_fields_defined = any(req.fields for req in requirements.process_updates)
+            process_exchanges_defined = any(
+                req.exchange_updates for req in requirements.process_updates
+            )
+
+        matched_name = matched_requirement.process_name.strip() if matched_requirement else None
+
+        return RequirementAnalysis(
+            has_global_requirements=has_global,
+            missing_global_fields=missing_global,
+            matched_process_name=matched_name,
+            matched_process_index=matched_index,
+            process_fields_defined=process_fields_defined,
+            process_exchanges_defined=process_exchanges_defined,
+            missing_process_fields=missing_process_fields,
+            missing_process_exchanges=missing_process_exchanges,
+            available_process_names=available_process_names,
+            unsupported_labels=unsupported,
+        )
+
     def apply(self, dataset: dict, requirements: RequirementBundle) -> dict:
         process_dataset = self._resolve_process_dataset(dataset)
         self._apply_field_requirements(process_dataset, requirements.global_updates)
@@ -204,6 +334,139 @@ class ProcessJsonUpdater:
 
         self._post_update_cleanup(dataset)
         return dataset
+
+    def _get_process_dataset_view(self, dataset: dict) -> dict:
+        if "processDataSet" in dataset and isinstance(dataset.get("processDataSet"), dict):
+            return dataset["processDataSet"]
+        if "processInformation" in dataset and isinstance(dataset.get("processInformation"), dict):
+            return dataset
+        return {}
+
+    def _field_value_differs(
+        self, process_dataset: dict, mapping: FieldMapping, requirement: FieldRequirement
+    ) -> bool:
+        existing_value = self._get_nested_value(process_dataset, mapping.schema_path)
+        if mapping.value_type == "multilang":
+            expected = self._expected_multilang_map(requirement)
+            actual = self._extract_multilang_map(existing_value)
+            return any(actual.get(lang) != text for lang, text in expected.items())
+        if mapping.value_type == "reference":
+            expected_id = self._expected_reference_id(requirement)
+            existing_ids = self._extract_reference_ids(existing_value)
+            return expected_id not in existing_ids
+        if mapping.value_type == "enum":
+            expected_value = self._build_enum(mapping, requirement)
+            existing = self._normalise_enum_value(existing_value)
+            return existing != expected_value
+        if mapping.value_type == "bool":
+            expected_value = self._build_bool(requirement)
+            existing = self._normalise_bool_value(existing_value)
+            return existing != expected_value
+        raise SpecCodingError(
+            f"Unsupported value type '{mapping.value_type}' for '{mapping.label}'"
+        )
+
+    def _get_nested_value(self, dataset: dict, path: tuple[str, ...]) -> object:
+        cursor: object = dataset
+        for segment in path:
+            if not isinstance(cursor, dict):
+                return None
+            cursor = cursor.get(segment)
+        return cursor
+
+    def _expected_multilang_map(self, requirement: FieldRequirement) -> dict[str, str]:
+        pairs: dict[str, str] = {}
+        for entry in requirement.language_values():
+            if entry.text is None:
+                continue
+            pairs.setdefault(entry.language, entry.text)
+        if not pairs:
+            raise SpecCodingError(
+                f"No multi-language values provided for '{requirement.label}'"
+            )
+        return pairs
+
+    def _extract_multilang_map(self, value: object) -> dict[str, str]:
+        result: dict[str, str] = {}
+        if isinstance(value, list):
+            for item in value:
+                inner = self._extract_multilang_map(item)
+                for lang, text in inner.items():
+                    result.setdefault(lang, text)
+            return result
+        if isinstance(value, dict):
+            text = value.get("#text") or value.get("text")
+            lang = value.get("@xml:lang")
+            if isinstance(text, str):
+                key = str(lang) if isinstance(lang, str) else ""
+                result.setdefault(key, text)
+            return result
+        if isinstance(value, str):
+            result.setdefault("", value)
+        return result
+
+    def _expected_reference_id(self, requirement: FieldRequirement) -> str:
+        raw_value = requirement.text_value().strip()
+        try:
+            return str(uuid.UUID(raw_value))
+        except ValueError as exc:
+            raise SpecCodingError(
+                f"Requirement '{requirement.label}' expected a UUID, received '{raw_value}'"
+            ) from exc
+
+    def _extract_reference_ids(self, value: object) -> set[str]:
+        result: set[str] = set()
+        if isinstance(value, list):
+            for item in value:
+                result.update(self._extract_reference_ids(item))
+            return result
+        if isinstance(value, dict):
+            ref = value.get("@refObjectId")
+            if isinstance(ref, str) and ref.strip():
+                result.add(ref.strip())
+            return result
+        if isinstance(value, str) and value.strip():
+            result.add(value.strip())
+        return result
+
+    def _normalise_bool_value(self, value: object) -> str | None:
+        if isinstance(value, str):
+            candidate = value.strip().lower()
+        elif isinstance(value, bool):
+            candidate = "true" if value else "false"
+        else:
+            candidate = str(value).strip().lower() if value is not None else ""
+        if candidate in {"true", "false"}:
+            return candidate
+        return None
+
+    def _normalise_enum_value(self, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value.strip()
+        return str(value).strip()
+
+    def _exchange_value_differs(self, process_dataset: dict, update: ExchangeUpdate) -> bool:
+        field_key = self.EXCHANGE_FIELD_KEYS[update.label]
+        exchanges_section = process_dataset.get("exchanges")
+        if not isinstance(exchanges_section, dict):
+            return True
+        exchange_items = exchanges_section.get("exchange")
+        if isinstance(exchange_items, dict):
+            exchange_items = [exchange_items]
+        if not isinstance(exchange_items, list) or not exchange_items:
+            return True
+        expected_value = self._normalise_exchange_value(update.value)
+        if update.match != "all":
+            return True
+        for exchange in exchange_items:
+            if not isinstance(exchange, dict):
+                return True
+            existing_value = self._normalise_exchange_value(exchange.get(field_key))
+            if existing_value != expected_value:
+                return True
+        return False
 
     def _apply_field_requirements(
         self, process_dataset: dict, requirements: Sequence[FieldRequirement]
@@ -259,22 +522,37 @@ class ProcessJsonUpdater:
                     exchange[field_key] = value
 
     @staticmethod
-    def _normalise_exchange_value(value: str | dict[str, str]) -> str:
+    def _normalise_exchange_value(value: object) -> str:
+        if value is None:
+            return ""
         if isinstance(value, dict):
-            return value.get("zh") or value.get("en") or next(iter(value.values())) if value else ""
+            if not value:
+                return ""
+            if "zh" in value and value["zh"]:
+                return str(value["zh"])
+            if "en" in value and value["en"]:
+                return str(value["en"])
+            first = next(iter(value.values()), "")
+            return str(first) if first is not None else ""
         return str(value)
 
     def _locate_process_requirement(
         self, process_dataset: dict, requirements: Sequence[ProcessRequirement]
     ) -> ProcessRequirement | None:
+        matched, _ = self._match_process_requirement(process_dataset, requirements)
+        return matched
+
+    def _match_process_requirement(
+        self, process_dataset: dict, requirements: Sequence[ProcessRequirement]
+    ) -> tuple[ProcessRequirement | None, int | None]:
         if not requirements:
-            return None
+            return None, None
         candidates = self._build_process_name_candidates(process_dataset)
-        for requirement in requirements:
+        for index, requirement in enumerate(requirements, start=1):
             provided = requirement.process_name.strip()
             if any(self._compare_names(provided, candidate) for candidate in candidates):
-                return requirement
-        return None
+                return requirement, index
+        return None, None
 
     def _build_process_name_candidates(self, process_dataset: dict) -> set[str]:
         info = process_dataset.get("processInformation", {})
@@ -325,7 +603,48 @@ class ProcessJsonUpdater:
 
     @staticmethod
     def _compare_names(provided: str, candidate: str) -> bool:
-        return provided.strip() == candidate.strip()
+        provided_name = ProcessJsonUpdater._normalise_name(provided)
+        candidate_name = ProcessJsonUpdater._normalise_name(candidate)
+        if not provided_name or not candidate_name:
+            return False
+        if provided_name == candidate_name:
+            return True
+
+        if "*" in provided_name:
+            wildcard_pattern = ProcessJsonUpdater._compile_wildcard_pattern(provided_name)
+            if wildcard_pattern.fullmatch(candidate_name):
+                return True
+
+        if provided_name in candidate_name or candidate_name in provided_name:
+            return True
+
+        provided_segments = [
+            segment for segment in (s.strip() for s in provided_name.split(";")) if segment
+        ]
+        if provided_segments and all(segment in candidate_name for segment in provided_segments):
+            return True
+
+        candidate_segments = [
+            segment for segment in (s.strip() for s in candidate_name.split(";")) if segment
+        ]
+        if candidate_segments and all(segment in provided_name for segment in candidate_segments):
+            return True
+
+        return False
+
+    @staticmethod
+    def _normalise_name(value: str) -> str:
+        parts = []
+        for segment in value.split(";"):
+            cleaned = re.sub(r"\s+", " ", segment).strip().lower()
+            if cleaned:
+                parts.append(cleaned)
+        return "; ".join(parts)
+
+    @staticmethod
+    def _compile_wildcard_pattern(pattern: str) -> re.Pattern[str]:
+        escaped = re.escape(pattern)
+        return re.compile("^" + escaped.replace(r"\*", ".*") + "$")
 
     def _convert_value(self, mapping: FieldMapping, requirement: FieldRequirement) -> object:
         if mapping.value_type == "multilang":
@@ -573,30 +892,47 @@ class ProcessJsonUpdater:
             validation["review"] = review
             self._logger.log("Validation review missing; inserted placeholder entry.")
 
-        review_type = review.get("@type")
-        if not isinstance(review_type, str) or not review_type.strip():
-            review["@type"] = "Not reviewed"
+        raw_review_type = review.get("@type")
+        review_type = raw_review_type.strip() if isinstance(raw_review_type, str) else ""
+        if not review_type:
+            review_type = "Not reviewed"
+        review["@type"] = review_type
 
-        scope = self._normalise_review_scope(review.get("scope"))
+        scope_value = review.get("common:scope") or review.get("scope")
+        scope = self._normalise_review_scope(scope_value)
         if scope is None:
             scope = {
                 "@name": "Documentation",
-                "method": {"@name": "Documentation"},
+                "common:method": {"@name": "Documentation"},
             }
-            self._logger.log("Validation review scope missing; inserted default scope.")
+            log_message = (
+                "Validation review scope missing; inserted default scope"
+                if review_type != "Not reviewed"
+                else "Validation review scope missing; inserted default scope for logging"
+            )
+            self._logger.log(log_message + ".")
+        if review_type == "Not reviewed":
+            review.pop("common:scope", None)
+        else:
+            review["common:scope"] = scope
         review["scope"] = scope
 
-        details = validation.get("reviewDetails")
+        details = validation.get("common:reviewDetails") or validation.get("reviewDetails")
         if self._is_empty_multilang(details):
-            validation["reviewDetails"] = {
+            placeholder_details = {
                 "@xml:lang": "en",
                 "#text": "Review summary pending confirmation.",
             }
+            validation["common:reviewDetails"] = placeholder_details
+            validation["reviewDetails"] = placeholder_details
             self._logger.log("Review details missing; inserted placeholder text.")
+        else:
+            if isinstance(details, dict):
+                validation["reviewDetails"] = details
 
         reviewer_ref = validation.get("common:referenceToNameOfReviewerAndInstitution")
         if self._is_empty_reference(reviewer_ref):
-            validation["common:referenceToNameOfReviewerAndInstitution"] = {
+            placeholder_ref = {
                 "@type": "Contact data set",
                 "@refObjectId": "00000000-0000-0000-0000-000000000002",
                 "@version": "1.0",
@@ -606,11 +942,16 @@ class ProcessJsonUpdater:
                     "#text": "Review contact pending confirmation.",
                 },
             }
+            validation["common:referenceToNameOfReviewerAndInstitution"] = placeholder_ref
+            validation["referenceToNameOfReviewerAndInstitution"] = placeholder_ref
             self._logger.log("Review contact reference missing; inserted placeholder reference.")
+        else:
+            if isinstance(reviewer_ref, dict):
+                validation["referenceToNameOfReviewerAndInstitution"] = reviewer_ref
 
         report_ref = validation.get("common:referenceToCompleteReviewReport")
         if self._is_empty_reference(report_ref):
-            validation["common:referenceToCompleteReviewReport"] = {
+            placeholder_report = {
                 "@type": "Source data set",
                 "@refObjectId": "00000000-0000-0000-0000-000000000003",
                 "@version": "1.0",
@@ -620,7 +961,12 @@ class ProcessJsonUpdater:
                     "#text": "Review report reference pending confirmation.",
                 },
             }
+            validation["common:referenceToCompleteReviewReport"] = placeholder_report
+            validation["referenceToCompleteReviewReport"] = placeholder_report
             self._logger.log("Review report reference missing; inserted placeholder reference.")
+        else:
+            if isinstance(report_ref, dict):
+                validation["referenceToCompleteReviewReport"] = report_ref
 
     def _normalise_review_scope(self, scope: object) -> object | None:
         if isinstance(scope, list):
@@ -641,7 +987,7 @@ class ProcessJsonUpdater:
         else:
             name = name.strip()
 
-        method_block = entry.get("method")
+        method_block = entry.get("common:method") or entry.get("method")
         if isinstance(method_block, dict):
             method_name = method_block.get("@name")
             if not isinstance(method_name, str) or not method_name.strip():
@@ -650,7 +996,7 @@ class ProcessJsonUpdater:
                 method_block = {"@name": method_name.strip()}
         else:
             method_block = {"@name": "Documentation"}
-        return {"@name": name, "method": method_block}
+        return {"@name": name, "common:method": method_block}
 
     def _ensure_compliance_block(self, compliance_section: dict) -> None:
         compliance = compliance_section.get("compliance")
@@ -664,19 +1010,20 @@ class ProcessJsonUpdater:
             else:
                 compliance = None
 
-        placeholder_compliance = {
-            "common:referenceToComplianceSystem": {
-                "@type": "Compliance system",
-                "@refObjectId": "00000000-0000-0000-0000-000000000004",
-                "@version": "1.0",
-                "@uri": "https://placeholder.example/compliance",
-                "common:shortDescription": {
-                    "@xml:lang": "en",
-                    "#text": "Compliance system reference pending confirmation.",
-                },
+        default_compliance_reference = {
+            "@type": "Compliance system",
+            "@refObjectId": "c84c4185-d1b0-44fc-823e-d2ec630c7906",
+            "@version": "01.00.000",
+            "@uri": "https://tiangong.earth/datasets/c84c4185-d1b0-44fc-823e-d2ec630c7906",
+            "common:shortDescription": {
+                "@xml:lang": "en",
+                "#text": "Environmental Footprint (EF) 3.1",
             },
-            "common:approvalOfOverallCompliance": "Not defined",
-            "common:nomenclatureCompliance": "Not defined",
+        }
+        placeholder_compliance = {
+            "common:referenceToComplianceSystem": deepcopy(default_compliance_reference),
+            "common:approvalOfOverallCompliance": "Fully compliant",
+            "common:nomenclatureCompliance": "Fully compliant",
             "common:methodologicalCompliance": "Not defined",
             "common:reviewCompliance": "Not defined",
             "common:documentationCompliance": "Not defined",
@@ -684,25 +1031,25 @@ class ProcessJsonUpdater:
         }
 
         if not isinstance(compliance, dict):
-            compliance_section["compliance"] = placeholder_compliance
-            self._logger.log("Compliance declaration missing; inserted placeholder entry.")
+            compliance_section["compliance"] = deepcopy(placeholder_compliance)
+            self._logger.log(
+                "Compliance declaration missing; inserted default Environmental Footprint entry."
+            )
             return
 
         reference = compliance.get("common:referenceToComplianceSystem")
         if self._is_empty_reference(reference):
-            compliance["common:referenceToComplianceSystem"] = placeholder_compliance[
-                "common:referenceToComplianceSystem"
-            ]
-            self._logger.log(
-                "Compliance reference missing; inserted placeholder compliance reference."
+            compliance["common:referenceToComplianceSystem"] = deepcopy(
+                default_compliance_reference
             )
+            self._logger.log("Compliance reference missing; inserted default EF 3.1 reference.")
 
         for key, default in placeholder_compliance.items():
             if key == "common:referenceToComplianceSystem":
                 continue
             value = compliance.get(key)
             if not isinstance(value, str) or not value.strip():
-                compliance[key] = default
+                compliance[key] = deepcopy(default) if isinstance(default, dict) else default
 
     def _normalise_allocation_fraction(self, value: str) -> str | None:
         stripped = value.strip()
