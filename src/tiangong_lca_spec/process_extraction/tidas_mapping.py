@@ -20,6 +20,7 @@ DEFAULT_LOCATION = "GLO"
 DEFAULT_REFERENCE_TYPE = "Reference flow(s)"
 DEFAULT_REFERENCE_ID = "0"
 DEFAULT_LANGUAGE = "en"
+DEFAULT_DATA_SET_VERSION = "01.01.000"
 TIDAS_PORTAL_BASE = "https://lcdn.tiangong.earth"
 
 DATA_SET_TYPE_OPTIONS = [
@@ -72,13 +73,9 @@ def build_tidas_process_dataset(process_dataset: dict[str, Any]) -> dict[str, An
     dataset = _apply_root_metadata(process_dataset)
     dataset["@locations"] = BASE_METADATA["@locations"]
     process_information = dataset.setdefault("processInformation", {})
-    normalised_process_information, name_components = _normalise_process_information(
-        process_information
-    )
+    normalised_process_information, name_components = _normalise_process_information(process_information)
     dataset["processInformation"] = normalised_process_information
-    dataset_uuid = (
-        normalised_process_information.get("dataSetInformation", {}).get("common:UUID")
-    )
+    dataset_uuid = normalised_process_information.get("dataSetInformation", {}).get("common:UUID")
     modelling = _normalise_modelling_and_validation(dataset.get("modellingAndValidation"))
     if modelling:
         dataset["modellingAndValidation"] = modelling
@@ -132,14 +129,31 @@ def _normalise_process_information(
     info["geography"] = geography
     _finalise_mix_string(name_components, geography)
     dataset_name = info["dataSetInformation"].get("name", {})
-    dataset_name["treatmentStandardsRoutes"] = _ensure_multilang(name_components["treatment"])
-    dataset_name["mixAndLocationTypes"] = _ensure_multilang(name_components["mix"])
+    dataset_name["treatmentStandardsRoutes"] = _ensure_multilang(
+        _format_name_field_text(name_components["treatment"]),
+        separator=", ",
+    )
+    dataset_name["mixAndLocationTypes"] = _ensure_multilang(
+        _format_name_field_text(name_components["mix"]),
+        separator=", ",
+    )
     info["dataSetInformation"]["name"] = dataset_name
     info["technology"] = _normalise_technology(info.get("technology"))
     if "technology" in info and not info["technology"]:
         info.pop("technology")
-    if "mathematicalRelations" in info and not info["mathematicalRelations"]:
-        info.pop("mathematicalRelations")
+    mathematical_relations = _ensure_dict(info.get("mathematicalRelations"))
+    if mathematical_relations:
+        if "modelDescription" in mathematical_relations:
+            entries = _ensure_multilang_list(mathematical_relations["modelDescription"])
+            if entries:
+                mathematical_relations["modelDescription"] = entries
+            else:
+                mathematical_relations.pop("modelDescription", None)
+        info["mathematicalRelations"] = mathematical_relations
+        if not mathematical_relations:
+            info.pop("mathematicalRelations", None)
+    else:
+        info.pop("mathematicalRelations", None)
     return info, name_components
 
 
@@ -160,6 +174,8 @@ def _normalise_dataset_information(
     info["identifierOfSubDataSet"] = identifier
 
     name_block = _ensure_dict(info.get("name"))
+    raw_general_comment = info.get("common:generalComment")
+    general_comment_text = _extract_multilang_text(raw_general_comment).strip()
     base_name_text = _extract_multilang_text(name_block.get("baseName", specinfo.get("baseName")))
     for field in (
         "baseName",
@@ -172,29 +188,26 @@ def _normalise_dataset_information(
     name_components = _derive_name_components(
         base_name_text,
         specinfo,
-        _stringify(info.get("common:generalComment")),
+        general_comment_text,
     )
+    base_text = _format_name_field_text(name_components["base"])
+    treatment_text = _format_name_field_text(name_components["treatment"])
+    mix_text = _format_name_field_text(name_components["mix"])
+    functional_properties_text = _format_name_field_text(name_components.get("functional_unit_properties"))
     refreshed_name_block: dict[str, Any] = {}
     refreshed_name_block["baseName"] = _ensure_multilang(
-        name_components["base"],
+        base_text,
         fallback="Unnamed process",
+        separator=", ",
     )
-    refreshed_name_block["treatmentStandardsRoutes"] = _ensure_multilang(
-        name_components["treatment"]
-    )
-    refreshed_name_block["mixAndLocationTypes"] = _ensure_multilang(name_components["mix"])
-    functional_properties = name_components.get("functional_unit_properties")
-    if functional_properties:
-        refreshed_name_block["functionalUnitFlowProperties"] = _ensure_multilang(
-            functional_properties
-        )
+    refreshed_name_block["treatmentStandardsRoutes"] = _ensure_multilang(treatment_text, separator=", ")
+    refreshed_name_block["mixAndLocationTypes"] = _ensure_multilang(mix_text, separator=", ")
+    if functional_properties_text:
+        refreshed_name_block["functionalUnitFlowProperties"] = _ensure_multilang(functional_properties_text, separator=", ")
     info["name"] = refreshed_name_block
 
     classification_info = _ensure_dict(info.get("classificationInformation"))
-    specification_text = (
-        _stringify(classification_info.pop("specification", None))
-        or _stringify(info.pop("specification", None))
-    ).strip()
+    specification_text = (_stringify(classification_info.pop("specification", None)) or _stringify(info.pop("specification", None))).strip()
     classification = classification_info.get("classification")
     common_class = classification_info.get("common:classification")
     if isinstance(classification, list):
@@ -217,22 +230,48 @@ def _normalise_dataset_information(
             classification_info["common:classification"] = {"common:class": candidate}
 
     classes = classification_info.get("common:classification", {}).get("common:class")
-    if isinstance(classes, list) and len(classes) > 4:
-        classification_info["common:classification"]["common:class"] = classes[:4]
+    if isinstance(classes, list):
+        normalised_classes: list[dict[str, Any]] = []
+        for index, entry in enumerate(classes):
+            if index >= 4:
+                break
+            if not isinstance(entry, dict):
+                continue
+            class_id = entry.get("@classId") or entry.get("classId") or f"UNSPEC-{index}"
+            level = entry.get("@level") or entry.get("level") or index
+            text_value = entry.get("#text") or entry.get("text") or entry.get("@text") or class_id
+            text_value = _strip_class_code_prefix(_stringify(text_value))
+            normalised_classes.append(
+                {
+                    "@level": str(level),
+                    "@classId": str(class_id),
+                    "#text": _stringify(text_value),
+                }
+            )
+        for entry in normalised_classes:
+            entry.pop("text", None)
+            entry.pop("@text", None)
+        classification_info.setdefault("common:classification", {})["common:class"] = normalised_classes
     if specification_text:
-        classification_info.setdefault("common:classification", {}).setdefault(
-            "common:other", specification_text
-        )
+        classification_info.setdefault("common:classification", {}).setdefault("common:other", specification_text)
     allowed_keys = {"common:classification", "common:other"}
-    classification_info = {
-        key: value for key, value in classification_info.items() if key in allowed_keys
-    }
+    classification_info = {key: value for key, value in classification_info.items() if key in allowed_keys}
 
     info["classificationInformation"] = classification_info
 
-    general_comment = _stringify(info.get("common:generalComment")).strip()
-    if general_comment:
-        info["common:generalComment"] = general_comment
+    synonyms_value = info.get("common:synonyms") or specinfo.get("common:synonyms")
+    synonyms_entries = _ensure_multilang_list(synonyms_value)
+    synonyms_entries = _filter_multilang_entries(synonyms_entries, target_lang=DEFAULT_LANGUAGE, clean_text=True)
+    if synonyms_entries:
+        info["common:synonyms"] = synonyms_entries
+    else:
+        info.pop("common:synonyms", None)
+
+    general_comment_entries = _ensure_multilang_list(raw_general_comment)
+    if not general_comment_entries and general_comment_text:
+        general_comment_entries = _ensure_multilang_list(general_comment_text)
+    if general_comment_entries:
+        info["common:generalComment"] = general_comment_entries
     else:
         info.pop("common:generalComment", None)
 
@@ -263,12 +302,19 @@ def _normalise_dataset_information(
         "classificationInformation",
         "common:generalComment",
     }
-    info = {
-        key: value
-        for key, value in info.items()
-        if key in allowed_dataset_info_keys and value not in (None, "", {}, [])
-    }
+    info = {key: value for key, value in info.items() if key in allowed_dataset_info_keys and value not in (None, "", {}, [])}
     return info, name_components
+
+
+def _strip_class_code_prefix(label: str) -> str:
+    text = _stringify(label).strip()
+    if not text:
+        return ""
+    match = re.match(r"^[A-Za-z0-9]+(?:[\.\-][A-Za-z0-9]+)*\s*[-–]\s*", text)
+    if match:
+        text = text[match.end() :].strip()
+    text = re.sub(r"\s*\([^)]*\)\s*$", "", text).strip()
+    return text or _stringify(label)
 
 
 FEEDSTOCK_KEYWORDS = [
@@ -366,9 +412,7 @@ def _normalise_time(section: Any) -> dict[str, Any]:
         time_info["common:referenceYear"] = year_value
     elif "common:referenceYear" in time_info:
         value = time_info["common:referenceYear"]
-        if not isinstance(value, (int, float, str)) or (
-            isinstance(value, str) and not value.isdigit()
-        ):
+        if not isinstance(value, (int, float, str)) or (isinstance(value, str) and not value.isdigit()):
             time_info.pop("common:referenceYear", None)
 
     valid_until = time_info.get("common:dataSetValidUntil")
@@ -378,19 +422,22 @@ def _normalise_time(section: Any) -> dict[str, Any]:
         time_info["common:dataSetValidUntil"] = year_value
     else:
         time_info.pop("common:dataSetValidUntil", None)
+
+    description = time_info.get("common:timeRepresentativenessDescription")
+    if description:
+        entries = _ensure_multilang_list(description)
+        if entries:
+            time_info["common:timeRepresentativenessDescription"] = entries
+        else:
+            time_info.pop("common:timeRepresentativenessDescription", None)
+
     return {k: v for k, v in time_info.items() if v not in (None, "", {})}
 
 
 def _normalise_geography(section: Any) -> dict[str, Any]:
     geo = _ensure_dict(section)
     block = _ensure_dict(geo.get("locationOfOperationSupplyOrProduction"))
-    raw_code = (
-        block.pop("@location", None)
-        or block.pop("location", None)
-        or geo.pop("code", None)
-        or geo.pop("@location", None)
-        or DEFAULT_LOCATION
-    )
+    raw_code = block.pop("@location", None) or block.pop("location", None) or geo.pop("code", None) or geo.pop("@location", None) or DEFAULT_LOCATION
     code, code_description = _extract_location_code(raw_code)
     sub_location = block.pop("subLocation", None) or geo.pop("subLocation", None)
 
@@ -406,13 +453,9 @@ def _normalise_technology(section: Any) -> dict[str, Any]:
     if not technology:
         return {}
     if "technologyDescriptionAndIncludedProcesses" in technology:
-        technology["technologyDescriptionAndIncludedProcesses"] = _ensure_multilang(
-            technology.get("technologyDescriptionAndIncludedProcesses"), fallback=""
-        )
+        technology["technologyDescriptionAndIncludedProcesses"] = _ensure_multilang(technology.get("technologyDescriptionAndIncludedProcesses"), fallback="")
     if technology.get("technologicalApplicability"):
-        technology["technologicalApplicability"] = _ensure_multilang(
-            technology.get("technologicalApplicability"), fallback=""
-        )
+        technology["technologicalApplicability"] = _ensure_multilang(technology.get("technologicalApplicability"), fallback="")
     for key in (
         "referenceToIncludedProcesses",
         "referenceToTechnologyPictogramme",
@@ -422,6 +465,107 @@ def _normalise_technology(section: Any) -> dict[str, Any]:
             technology.pop(key, None)
     technology.pop("common:other", None)
     return technology
+
+
+def _sanitize_general_comment(comment: Any) -> dict[str, Any] | str | None:
+    text = _extract_multilang_text(comment).strip()
+    if not text:
+        return None
+    lang = DEFAULT_LANGUAGE
+    if isinstance(comment, dict):
+        lang = comment.get("@xml:lang") or lang
+    if not text.startswith("FlowSearch hints:"):
+        return {"@xml:lang": lang, "#text": text}
+    hints, notes = _parse_hint_segments(text[len("FlowSearch hints:") :])
+    comment_text = _compose_comment_from_hints(hints, notes)
+    if not comment_text:
+        return None
+    return {"@xml:lang": lang, "#text": comment_text}
+
+
+def _parse_hint_segments(text: str) -> tuple[dict[str, list[str]], list[str]]:
+    body = text.strip()
+    segments = [segment.strip() for segment in body.split("|") if segment.strip()]
+    hints: dict[str, list[str]] = {}
+    notes: list[str] = []
+    for segment in segments:
+        if "=" in segment:
+            key, value = segment.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                continue
+            if not value or value.lower() == "na":
+                continue
+            values = [item.strip() for item in value.split(";") if item.strip()]
+            hints[key] = values or [value]
+        else:
+            notes.append(_clean_note_text(segment))
+    return hints, notes
+
+
+def _compose_comment_from_hints(hints: dict[str, list[str]], notes: list[str]) -> str:
+    parts: list[str] = []
+
+    def _join(values: list[str], *, limit: int | None = None, separator: str = "; ") -> str:
+        items = [value for value in values if value]
+        if limit is not None:
+            items = items[:limit]
+        return separator.join(items)
+
+    if hints.get("usage_context"):
+        parts.append(f"Usage context: {_join(hints['usage_context'])}")
+    if hints.get("source_or_pathway"):
+        parts.append(f"Source/pathway: {_join(hints['source_or_pathway'])}")
+    if hints.get("state_purity"):
+        parts.append(f"State/purity: {_join(hints['state_purity'])}")
+    if hints.get("abbreviation"):
+        parts.append(f"Abbreviation: {_join(hints['abbreviation'])}")
+    if hints.get("formula_or_CAS"):
+        parts.append(f"Formula/CAS: {_join(hints['formula_or_CAS'])}")
+    if hints.get("en_synonyms"):
+        parts.append(f"Synonyms (EN): {_join(hints['en_synonyms'], limit=3)}")
+    if hints.get("zh_synonyms"):
+        parts.append(f"Synonyms (ZH): {_join(hints['zh_synonyms'], limit=3, separator=', ')}")
+    for note in notes:
+        cleaned = _clean_note_text(note)
+        if cleaned:
+            parts.append(cleaned)
+
+    sentences = [_ensure_sentence(part) for part in parts if part]
+    return " ".join(sentence for sentence in sentences if sentence).strip()
+
+
+def _clean_note_text(value: str) -> str:
+    if not value:
+        return ""
+    cleaned = value.strip()
+    for prefix in ("Notes:", "Note:", "备注:", "说明:", "-"):
+        if cleaned.lower().startswith(prefix.lower()):
+            cleaned = cleaned[len(prefix) :].strip()
+            break
+    return cleaned.strip()
+
+
+def _format_name_field_text(value: Any) -> str:
+    text = _stringify(value).strip()
+    if not text:
+        return ""
+    if ";" not in text:
+        return text
+    segments = [segment.strip() for segment in text.split(";") if segment.strip()]
+    if len(segments) <= 1:
+        return text
+    return ", ".join(segments)
+
+
+def _ensure_sentence(text: str) -> str:
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    if stripped[-1] in ".!?。；;:":
+        return stripped
+    return f"{stripped}."
 
 
 def _normalise_exchanges(
@@ -462,13 +606,15 @@ def _normalise_exchanges(
         item["exchangeDirection"] = "Input" if direction != "output" else "Output"
         item.setdefault("meanAmount", "0")
         item.setdefault("resultingAmount", "0")
-        item["dataDerivationTypeStatus"] = _normalise_derivation_status(
-            item.get("dataDerivationTypeStatus")
-        )
+        item["dataDerivationTypeStatus"] = _normalise_derivation_status(item.get("dataDerivationTypeStatus"))
         short_description = _compose_short_description(exchange_name, item, name_components)
         comment_value = item.get("generalComment")
         if comment_value:
-            item["generalComment"] = _ensure_multilang(comment_value, fallback="")
+            cleaned_comment = _sanitize_general_comment(comment_value)
+            if cleaned_comment:
+                item["generalComment"] = _ensure_multilang(cleaned_comment, fallback="")
+            else:
+                item.pop("generalComment", None)
         else:
             item.pop("generalComment", None)
         # Preserve genuine flow references (from alignment) but drop empty placeholders,
@@ -580,9 +726,7 @@ def _normalise_lcia_results(section: Any) -> dict[str, Any]:
         else:
             lcia_result["meanAmount"] = f"{mean_value}"
     if lcia_result.get("generalComment"):
-        lcia_result["generalComment"] = _ensure_multilang(
-            lcia_result.get("generalComment"), fallback=""
-        )
+        lcia_result["generalComment"] = _ensure_multilang(lcia_result.get("generalComment"), fallback="")
     if not _has_reference(lcia_result.get("referenceToLCIAMethodDataSet")):
         lcia_result.pop("referenceToLCIAMethodDataSet", None)
     results = {"LCIAResult": lcia_result}
@@ -601,9 +745,7 @@ def _normalise_modelling_and_validation(section: Any) -> dict[str, Any]:
         type_value = DEFAULT_PROCESS_DATA_SET_TYPE
     lci["typeOfDataSet"] = type_value
 
-    principle_value = _match_allowed_option(
-        lci.get("LCIMethodPrinciple"), LCI_METHOD_PRINCIPLE_OPTIONS
-    )
+    principle_value = _match_allowed_option(lci.get("LCIMethodPrinciple"), LCI_METHOD_PRINCIPLE_OPTIONS)
     if principle_value:
         lci["LCIMethodPrinciple"] = principle_value
     else:
@@ -616,24 +758,101 @@ def _normalise_modelling_and_validation(section: Any) -> dict[str, Any]:
         lci.pop("LCIMethodApproaches", None)
 
     lci.pop("common:other", None)
+    for key in (
+        "deviationsFromLCIMethodApproaches",
+        "deviationsFromLCIMethodPrinciple",
+        "modellingConstants",
+        "deviationsFromModellingConstants",
+    ):
+        if key in lci:
+            entries = _ensure_multilang_list(lci[key])
+            if entries:
+                lci[key] = entries
+            else:
+                lci.pop(key, None)
     if lci:
         mv["LCIMethodAndAllocation"] = lci
 
     dsr = _ensure_dict(mv_raw.get("dataSourcesTreatmentAndRepresentativeness"))
     if dsr:
-        mv["dataSourcesTreatmentAndRepresentativeness"] = dsr
+        for key in (
+            "dataCutOffAndCompletenessPrinciples",
+            "deviationsFromCutOffAndCompletenessPrinciples",
+            "dataSelectionAndCombinationPrinciples",
+            "deviationsFromSelectionAndCombinationPrinciples",
+            "dataTreatmentAndExtrapolationsPrinciples",
+            "deviationsFromTreatmentAndExtrapolationPrinciples",
+            "samplingProcedure",
+            "uncertaintyAdjustments",
+            "useAdviceForDataSet",
+        ):
+            if key in dsr:
+                entries = _ensure_multilang_list(dsr[key])
+                if entries:
+                    dsr[key] = entries
+                else:
+                    dsr.pop(key, None)
+        for key in ("annualSupplyOrProductionVolume", "dataCollectionPeriod"):
+            if key in dsr:
+                value = _ensure_multilang(dsr[key], fallback="")
+                if value.get("#text"):
+                    dsr[key] = value
+                else:
+                    dsr.pop(key, None)
+        dsr.pop("common:other", None)
+        coverage_value = _normalise_percentage_coverage(dsr.get("percentageSupplyOrProductionCovered"))
+        if coverage_value is not None:
+            dsr["percentageSupplyOrProductionCovered"] = coverage_value
+        else:
+            dsr["percentageSupplyOrProductionCovered"] = "100"
+        if dsr:
+            mv["dataSourcesTreatmentAndRepresentativeness"] = dsr
 
     completeness = _ensure_dict(mv_raw.get("completeness"))
     if completeness:
         mv["completeness"] = completeness
 
     validation = _ensure_dict(mv_raw.get("validation"))
-    if validation:
-        mv["validation"] = validation
+    review = _ensure_dict(validation.get("review"))
+    review_type = _stringify(review.get("@type")).strip()
+    if review_type not in {
+        "Dependent internal review",
+        "Independent internal review",
+        "Independent external review",
+        "Accredited third party review",
+        "Independent review panel",
+        "Not reviewed",
+    }:
+        review["@type"] = "Not reviewed"
+    validation["review"] = review
+    mv["validation"] = validation
 
     compliance = _ensure_dict(mv_raw.get("complianceDeclarations"))
-    if compliance:
-        mv["complianceDeclarations"] = compliance
+    compliance_block = compliance.get("compliance")
+    if not isinstance(compliance_block, dict):
+        compliance_block = {}
+    compliance_block.pop("referenceToComplianceSystem", None)
+    compliance_block.pop("value", None)
+    for key in list(compliance_block.keys()):
+        if not key.startswith("common:"):
+            compliance_block.pop(key, None)
+    if not _has_reference(compliance_block.get("common:referenceToComplianceSystem")):
+        reference = _build_compliance_reference()
+        if reference:
+            compliance_block["common:referenceToComplianceSystem"] = reference
+    if not compliance_block.get("common:approvalOfOverallCompliance"):
+        compliance_block["common:approvalOfOverallCompliance"] = "Not defined"
+    for field in (
+        "common:nomenclatureCompliance",
+        "common:methodologicalCompliance",
+        "common:reviewCompliance",
+        "common:documentationCompliance",
+        "common:qualityCompliance",
+    ):
+        if not compliance_block.get(field):
+            compliance_block[field] = "Not defined"
+    compliance["compliance"] = compliance_block
+    mv["complianceDeclarations"] = compliance
 
     return mv
 
@@ -651,38 +870,45 @@ def _normalise_administrative_information(
     commissioner["common:referenceToCommissioner"] = _build_commissioner_reference()
     if not commissioner.get("common:intendedApplications"):
         commissioner.pop("common:intendedApplications", None)
+    else:
+        intended = commissioner.get("common:intendedApplications")
+        entries = _ensure_multilang_list(intended)
+        if entries:
+            commissioner["common:intendedApplications"] = entries
+        else:
+            commissioner.pop("common:intendedApplications", None)
     admin["common:commissionerAndGoal"] = commissioner
 
     data_entry = _ensure_dict(admin.get("dataEntryBy"))
     data_entry.pop("common:other", None)
     data_entry["common:referenceToDataSetFormat"] = _build_dataset_format_reference()
-    cleaned_data_entry = {
-        key: value for key, value in data_entry.items() if value not in (None, "", {}, [])
-    }
+    data_entry["common:referenceToPersonOrEntityEnteringTheData"] = _build_commissioner_reference()
+    cleaned_data_entry = {key: value for key, value in data_entry.items() if value not in (None, "", {}, [])}
     admin["dataEntryBy"] = cleaned_data_entry
 
     publication = _ensure_dict(admin.get("publicationAndOwnership"))
-    version_candidate = _stringify(publication.get("common:dataSetVersion")).strip()
-    if not version_candidate:
-        version_candidate = "01.00.000"
+    version_candidate = DEFAULT_DATA_SET_VERSION
     if publication or dataset_uuid:
         publication["common:dataSetVersion"] = version_candidate
         if dataset_uuid:
-            publication["common:permanentDataSetURI"] = _build_permanent_dataset_uri(
-                dataset_kind, dataset_uuid, version_candidate
-            )
+            publication["common:permanentDataSetURI"] = _build_permanent_dataset_uri(dataset_kind, dataset_uuid, version_candidate)
         if "common:registrationNumber" in publication:
-            publication["common:registrationNumber"] = _stringify(
-                publication.get("common:registrationNumber")
-            ).strip()
+            publication["common:registrationNumber"] = _stringify(publication.get("common:registrationNumber")).strip()
         licence_value = publication.get("common:licenseType")
         if licence_value is not None:
             publication["common:licenseType"] = _normalise_license(licence_value)
+        copyright_value = publication.get("common:copyright")
+        if copyright_value is not None:
+            lowered = _stringify(copyright_value).strip().lower()
+            if lowered in {"yes", "true"}:
+                publication["common:copyright"] = "true"
+            elif lowered in {"no", "false"}:
+                publication["common:copyright"] = "false"
+            else:
+                publication.pop("common:copyright", None)
         publication["common:referenceToOwnershipOfDataSet"] = _build_commissioner_reference()
         publication.pop("common:other", None)
-        cleaned_publication = {
-            key: value for key, value in publication.items() if value not in (None, "", {}, [])
-        }
+        cleaned_publication = {key: value for key, value in publication.items() if value not in (None, "", {}, [])}
         if cleaned_publication:
             admin["publicationAndOwnership"] = cleaned_publication
         else:
@@ -700,7 +926,7 @@ def _build_reference(ref_type: str, description: str) -> dict[str, Any]:
         "@type": ref_type,
         "@refObjectId": identifier,
         "@uri": f"https://tiangong.earth/{ref_type}/{identifier}",
-        "@version": "01.00.000",
+        "@version": "01.01.000",
         "common:shortDescription": _ensure_multilang(description),
     }
 
@@ -710,7 +936,7 @@ def _build_commissioner_reference() -> dict[str, Any]:
         "@refObjectId": "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8",
         "@type": "contact data set",
         "@uri": "../contacts/f4b4c314-8c4c-4c83-968f-5b3c7724f6a8.xml",
-        "@version": "01.00.000",
+        "@version": "01.01.000",
         "common:shortDescription": [
             {"@xml:lang": "en", "#text": "Tiangong LCA Data Working Group"},
             {"@xml:lang": "zh", "#text": "天工LCA数据团队"},
@@ -725,6 +951,18 @@ def _build_dataset_format_reference() -> dict[str, Any]:
         "@uri": "../sources/a97a0155-0234-4b87-b4ce-a45da52f2a40.xml",
         "@version": "03.00.003",
         "common:shortDescription": {"@xml:lang": "en", "#text": "ILCD format"},
+    }
+
+
+def _build_compliance_reference() -> dict[str, Any] | None:
+    """Return the public ILCD Data Network compliance reference."""
+
+    return {
+        "@refObjectId": "d92a1a12-2545-49e2-a585-55c259997756",
+        "@type": "source data set",
+        "@uri": ("https://lcdn.tiangong.earth/showSource.xhtml?" "uuid=d92a1a12-2545-49e2-a585-55c259997756&version=20.20.002"),
+        "@version": "20.20.002",
+        "common:shortDescription": {"@xml:lang": "en", "#text": "ILCD Data Network - Entry-level"},
     }
 
 
@@ -774,9 +1012,7 @@ def _normalise_derivation_status(value: Any) -> str:
 def _normalise_license(value: Any) -> str:
     allowed = {
         "free of charge for all users and uses": "Free of charge for all users and uses",
-        "free of charge for some user types or use types": (
-            "Free of charge for some user types or use types"
-        ),
+        "free of charge for some user types or use types": ("Free of charge for some user types or use types"),
         "free of charge for members only": "Free of charge for members only",
         "license fee": "License fee",
         "other": "Other",
@@ -812,7 +1048,7 @@ def _is_valid_uuid(value: str) -> bool:
 def _build_permanent_dataset_uri(dataset_kind: str, uuid_value: str, version: str) -> str:
     if not uuid_value:
         return ""
-    version_clean = version.strip() or "01.00.000"
+    version_clean = version.strip() or "01.01.000"
     suffix_map = {
         "process": "showProcess.xhtml",
         "flow": "showProductFlow.xhtml",
@@ -839,6 +1075,59 @@ def _to_multilang(value: Any) -> dict[str, Any]:
     return {"@xml:lang": DEFAULT_LANGUAGE, "#text": _stringify(value)}
 
 
+def _ensure_multilang_list(value: Any) -> list[dict[str, Any]]:
+    if value in (None, "", [], {}):
+        return []
+    if isinstance(value, list):
+        entries = []
+        for item in value:
+            if item not in (None, ""):
+                entries.append(_ensure_multilang(item))
+        return entries
+    return [_ensure_multilang(value)]
+
+
+def _filter_multilang_entries(
+    entries: list[dict[str, Any]],
+    *,
+    target_lang: str | None,
+    clean_text: bool = False,
+) -> list[dict[str, Any]]:
+    if not entries:
+        return []
+    filtered: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    target = target_lang.lower() if isinstance(target_lang, str) else None
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        lang_candidate = _stringify(entry.get("@xml:lang") or DEFAULT_LANGUAGE).strip().lower() or DEFAULT_LANGUAGE
+        if target is not None and lang_candidate != target:
+            continue
+        text_value = _stringify(entry.get("#text")).strip()
+        if clean_text and text_value:
+            text_value = _clean_english_text(text_value)
+        if not text_value:
+            continue
+        canonical_lang = target if target is not None else lang_candidate or DEFAULT_LANGUAGE
+        key = (canonical_lang, text_value)
+        if key in seen:
+            continue
+        filtered.append({"@xml:lang": canonical_lang, "#text": text_value})
+        seen.add(key)
+    return filtered
+
+
+def _clean_english_text(text: str) -> str:
+    if not text:
+        return ""
+    segments = [segment.strip() for segment in re.split(r"[;,]", text) if segment and segment.strip()]
+    english_segments = [segment for segment in segments if segment.isascii()]
+    if english_segments:
+        return "; ".join(english_segments)
+    return text if text.isascii() else ""
+
+
 def _stringify(value: Any) -> str:
     if value is None:
         return ""
@@ -846,6 +1135,13 @@ def _stringify(value: Any) -> str:
 
 
 def _extract_multilang_text(value: Any) -> str:
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            text = _extract_multilang_text(item)
+            if text:
+                parts.append(text)
+        return "; ".join(parts)
     if isinstance(value, dict):
         if "#text" in value:
             return _stringify(value["#text"])
@@ -854,14 +1150,20 @@ def _extract_multilang_text(value: Any) -> str:
     return _stringify(value)
 
 
-def _ensure_multilang(value: Any, *, fallback: str | None = None) -> dict[str, Any]:
+def _ensure_multilang(value: Any, *, fallback: str | None = None, separator: str = "; ") -> dict[str, Any]:
     if isinstance(value, dict) and "@xml:lang" in value and "#text" in value:
         return value
-    text = _stringify(value)
-    if not text and fallback is not None:
+    if isinstance(value, list):
+        segments = [segment for segment in (_extract_multilang_text(item).strip() for item in value) if segment]
+        text = separator.join(segments)
+    else:
+        text = _stringify(value)
+    if (not text) and fallback is not None:
         text = fallback
     if text is None:
         text = ""
+    if isinstance(text, str):
+        text = text.strip()
     return {"@xml:lang": DEFAULT_LANGUAGE, "#text": text}
 
 
@@ -890,19 +1192,35 @@ def _has_reference(value: Any) -> bool:
     return False
 
 
+def _normalise_percentage_coverage(value: Any) -> str | None:
+    text = _stringify(value).strip()
+    if not text or text.upper() == "NA":
+        return None
+    try:
+        number = float(text)
+    except ValueError:
+        return None
+    if number < 0:
+        number = 0.0
+    if number > 100:
+        number = 100.0
+    return f"{number:.3f}".rstrip("0").rstrip(".")
+
+
 def _extract_location_code(value: Any) -> tuple[str, str | None]:
     if isinstance(value, str):
         text = value.strip()
+        code = _parse_location_code(text)
+        if code:
+            return code, None
         return (text or DEFAULT_LOCATION, None)
     if isinstance(value, dict):
-        fallback_description = (
-            _stringify(value.get("description") or value.get("name") or value.get("common:other"))
-            or None
-        )
+        fallback_description = _stringify(value.get("description") or value.get("name") or value.get("common:other")) or None
         for key in ("code", "@location", "location", "country", "region"):
             candidate = value.get(key)
             if isinstance(candidate, str) and candidate.strip():
-                return candidate.strip(), fallback_description
+                parsed = _parse_location_code(candidate)
+                return (parsed or candidate.strip(), fallback_description)
         return DEFAULT_LOCATION, fallback_description
     if isinstance(value, (list, tuple)):
         for item in value:
@@ -910,6 +1228,29 @@ def _extract_location_code(value: Any) -> tuple[str, str | None]:
             if code:
                 return code, desc
     return DEFAULT_LOCATION, None
+
+
+def _parse_location_code(text: str) -> str | None:
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return None
+    upper = cleaned.upper()
+    iso_match = re.search(r"ISO[:\s\-]*([A-Z]{2,3})", upper)
+    if iso_match:
+        return iso_match.group(1)
+    paren_match = re.search(r"\(([A-Z]{2,3})\)", upper)
+    if paren_match:
+        return paren_match.group(1)
+    start_match = re.match(r"^([A-Z]{2,3})(?:\b|[^A-Z0-9])", upper)
+    if start_match:
+        return start_match.group(1)
+    tokens = [token for token in re.split(r"[\s,;/()\-]+", upper) if token]
+    for token in tokens:
+        if token == "ISO":
+            continue
+        if len(token) in {2, 3} and token.isalpha():
+            return token
+    return None
 
 
 def _match_allowed_option(value: Any, options: list[str]) -> str | None:
@@ -1019,9 +1360,7 @@ def _extract_feedstock(sources: list[str], product: str) -> str:
             if candidate:
                 return _title_case_phrase(_clean_feedstock_phrase(candidate))
     for text in sources:
-        match = re.search(
-            r"feedstock\s*(?:is|are|:)?\s*([A-Za-z0-9\s\-/]+)", text or "", re.IGNORECASE
-        )
+        match = re.search(r"feedstock\s*(?:is|are|:)?\s*([A-Za-z0-9\s\-/]+)", text or "", re.IGNORECASE)
         if match:
             candidate = match.group(1).strip(" ,.;:")
             if candidate:
@@ -1117,9 +1456,7 @@ def _resolve_route(product: str, route_candidate: str, sources: list[str]) -> st
     for text in sources:
         if not text:
             continue
-        match = re.search(
-            r"(?:technical|technology)\s+route[:：]\s*([^;\n,]+)", text, re.IGNORECASE
-        )
+        match = re.search(r"(?:technical|technology)\s+route[:：]\s*([^;\n,]+)", text, re.IGNORECASE)
         if match:
             candidate = match.group(1).strip()
             if candidate:
@@ -1201,9 +1538,7 @@ def _deduplicate_preserve_order(parts: list[str]) -> list[str]:
 
 def _strip_common_other(value: Any) -> Any:
     if isinstance(value, dict):
-        return {
-            key: _strip_common_other(val) for key, val in value.items() if key != "common:other"
-        }
+        return {key: _strip_common_other(val) for key, val in value.items() if key != "common:other"}
     if isinstance(value, list):
         return [_strip_common_other(item) for item in value]
     return value
@@ -1242,9 +1577,7 @@ def _select_reference_flow(
         return None
     functional_unit = name_components.get("functional_unit") or ""
     fu_amount, fu_unit = _parse_amount_unit(functional_unit)
-    output_candidates = [
-        candidate for candidate in candidates if candidate.get("direction", "").lower() == "output"
-    ]
+    output_candidates = [candidate for candidate in candidates if candidate.get("direction", "").lower() == "output"]
     search_pool = output_candidates or candidates
 
     for candidate in search_pool:

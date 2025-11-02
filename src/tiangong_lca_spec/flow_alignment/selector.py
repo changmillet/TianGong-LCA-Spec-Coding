@@ -51,19 +51,12 @@ class SimilarityCandidateSelector:
         candidates: Sequence[FlowCandidate],
     ) -> SelectorDecision:
         if not candidates:
-            return SelectorDecision(
-                candidate=None, score=None, reasoning=None, strategy="similarity"
-            )
-        scored = [
-            (self._score(query.exchange_name, candidate.base_name), candidate)
-            for candidate in candidates[:10]
-        ]
+            return SelectorDecision(candidate=None, score=None, reasoning=None, strategy="similarity")
+        scored = [(self._score(query.exchange_name, candidate.base_name), candidate) for candidate in candidates[:10]]
         scored.sort(key=lambda item: item[0], reverse=True)
         best_score, best_candidate = scored[0]
         if best_score <= 0.0:
-            return SelectorDecision(
-                candidate=None, score=None, reasoning=None, strategy="similarity"
-            )
+            return SelectorDecision(candidate=None, score=None, reasoning=None, strategy="similarity")
         return SelectorDecision(
             candidate=best_candidate,
             score=best_score,
@@ -122,6 +115,14 @@ class LLMCandidateSelector:
             parsed = self._parse_response(raw_response)
             best_index = parsed.get("best_index")
             if best_index is None:
+                fallback_decision = self._fallback.select(query, exchange, candidates)
+                if fallback_decision.candidate is not None:
+                    return SelectorDecision(
+                        candidate=fallback_decision.candidate,
+                        score=fallback_decision.score,
+                        reasoning=fallback_decision.reasoning or parsed.get("reason"),
+                        strategy=f"llm_fallback->{fallback_decision.strategy}",
+                    )
                 return SelectorDecision(
                     candidate=None,
                     score=self._coerce_float(parsed.get("confidence")),

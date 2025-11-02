@@ -6,7 +6,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from tiangong_lca_spec.core.config import Settings, get_settings
 from tiangong_lca_spec.core.exceptions import SpecCodingError
@@ -68,6 +68,42 @@ def _derive_language_pairs(hints: Mapping[str, list[str] | str], fallback: str) 
     return en, zh
 
 
+def _get_nested(mapping: Mapping[str, Any], path: Sequence[str]) -> Any:
+    """Return nested value via keys, or None when any level is missing."""
+    current: Any = mapping
+    for key in path:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _resolve_dataset_root(
+    payload: Mapping[str, Any],
+    *,
+    root_key: str | None,
+    dataset_kind: str,
+) -> Mapping[str, Any]:
+    """Return the ILCD dataset block and validate its structure."""
+    if root_key is None:
+        target = payload
+    else:
+        target = payload.get(root_key)
+        if target is None:
+            raise SpecCodingError(f"{dataset_kind} payload missing '{root_key}'.")
+    if not isinstance(target, Mapping):
+        location = root_key or "root"
+        raise SpecCodingError(f"{dataset_kind} payload must be an object at '{location}'.")
+    return target
+
+
+def _require_uuid(value: Any, dataset_kind: str) -> str:
+    uuid_value = _coerce_text(value)
+    if not uuid_value:
+        raise SpecCodingError(f"Missing common:UUID for {dataset_kind} dataset.")
+    return uuid_value
+
+
 def _infer_flow_type(exchange: Mapping[str, Any], hints: Mapping[str, list[str] | str]) -> str:
     name = _coerce_text(exchange.get("exchangeName"))
     direction = _coerce_text(exchange.get("exchangeDirection")).lower()
@@ -78,10 +114,7 @@ def _infer_flow_type(exchange: Mapping[str, Any], hints: Mapping[str, list[str] 
         name.lower(),
     ]
     text = " ".join(text_parts).lower()
-    if any(
-        keyword in text
-        for keyword in ("emission", "flue gas", "to air", "to water", "wastewater", "effluent")
-    ):
+    if any(keyword in text for keyword in ("emission", "flue gas", "to air", "to water", "wastewater", "effluent")):
         return "Elementary flow"
     if "waste" in text or direction == "output" and "slag" in text:
         return "Waste flow"
@@ -140,7 +173,7 @@ def _build_flow_properties(unit: str) -> dict[str, Any]:
         "@type": "flow property data set",
         "@refObjectId": "93a60a56-a3c8-11da-a746-0800200b9a66",
         "@uri": "../flowproperties/93a60a56-a3c8-11da-a746-0800200b9a66.xml",
-        "@version": "01.00.000",
+        "@version": "01.01.000",
         "common:shortDescription": {
             "@xml:lang": "en",
             "#text": "Mass",
@@ -192,20 +225,62 @@ class DatabaseCrudClient:
         self._server_name = self._settings.flow_search_service_name
 
     def insert_flow(self, dataset: Mapping[str, Any]) -> dict[str, Any]:
+        root_key = "flowDataSet" if "flowDataSet" in dataset else None
+        flow_root = _resolve_dataset_root(dataset, root_key=root_key, dataset_kind="flow")
+        uuid_value = _require_uuid(
+            _get_nested(flow_root, ("flowInformation", "dataSetInformation", "common:UUID")),
+            "flow",
+        )
+        json_payload = dataset if root_key else {"flowDataSet": flow_root}
         return self._invoke(
             {
                 "operation": "insert",
                 "table": "flows",
-                "jsonOrdered": dataset,
+                "id": uuid_value,
+                "jsonOrdered": json_payload,
             }
         )
 
     def insert_process(self, dataset: Mapping[str, Any]) -> dict[str, Any]:
+        root_key = "processDataSet" if "processDataSet" in dataset else None
+        process_root = _resolve_dataset_root(dataset, root_key=root_key, dataset_kind="process")
+        uuid_value = _require_uuid(
+            _get_nested(process_root, ("processInformation", "dataSetInformation", "common:UUID")),
+            "process",
+        )
+        json_payload = dataset if root_key else {"processDataSet": process_root}
         return self._invoke(
             {
                 "operation": "insert",
                 "table": "processes",
-                "jsonOrdered": dataset,
+                "id": uuid_value,
+                "jsonOrdered": json_payload,
+            }
+        )
+
+    def update_process(self, dataset: Mapping[str, Any]) -> dict[str, Any]:
+        root_key = "processDataSet" if "processDataSet" in dataset else None
+        process_root = _resolve_dataset_root(dataset, root_key=root_key, dataset_kind="process")
+        uuid_value = _require_uuid(
+            _get_nested(process_root, ("processInformation", "dataSetInformation", "common:UUID")),
+            "process",
+        )
+        version_candidate = _coerce_text(
+            _get_nested(
+                process_root,
+                ("administrativeInformation", "publicationAndOwnership", "common:dataSetVersion"),
+            )
+        )
+        if not version_candidate:
+            version_candidate = "01.01.000"
+        json_payload = dataset if root_key else {"processDataSet": process_root}
+        return self._invoke(
+            {
+                "operation": "update",
+                "table": "processes",
+                "id": uuid_value,
+                "version": version_candidate,
+                "jsonOrdered": json_payload,
             }
         )
 
@@ -247,9 +322,7 @@ class FlowPublisher:
         self._dry_run = dry_run
         self._prepared: list[FlowPublishPlan] = []
 
-    def prepare_from_alignment(
-        self, alignment: Iterable[Mapping[str, Any]]
-    ) -> list[FlowPublishPlan]:
+    def prepare_from_alignment(self, alignment: Iterable[Mapping[str, Any]]) -> list[FlowPublishPlan]:
         """Generate publication plans for every unmatched exchange."""
         plans: list[FlowPublishPlan] = []
         for entry in alignment:
@@ -263,6 +336,8 @@ class FlowPublisher:
                     if not ref.get("unmatched:placeholder"):
                         continue
                     plan = self._build_plan(exchange, process_name)
+                    if plan is None:
+                        continue
                     plans.append(plan)
         self._prepared = plans
         LOGGER.info("flow_publish.plans_ready", count=len(plans))
@@ -287,20 +362,33 @@ class FlowPublisher:
     def close(self) -> None:
         self._crud.close()
 
-    def _build_plan(self, exchange: Mapping[str, Any], process_name: str) -> FlowPublishPlan:
+    def _build_plan(self, exchange: Mapping[str, Any], process_name: str) -> Optional[FlowPublishPlan]:
         exchange_name = _coerce_text(exchange.get("exchangeName")) or "Unnamed exchange"
         comment = _extract_general_comment(exchange)
         hints = _parse_flowsearch_hints(comment)
         uuid_value = str(uuid.uuid4())
         en_name, zh_name = _derive_language_pairs(hints, exchange_name)
         flow_type = _infer_flow_type(exchange, hints)
-        classification = (
-            _build_elementary_classification(hints)
-            if flow_type == "Elementary flow"
-            else _build_product_classification()
-        )
+        if flow_type == "Elementary flow":
+            LOGGER.warning(
+                "flow_publish.skip_elementary",
+                exchange=exchange_name,
+                process=process_name,
+                reason="Elementary flows must reuse existing records.",
+            )
+            return None
+        classification = _build_product_classification()
         comment_entries = [_language_entry(comment or f"Auto-generated for {exchange_name}")]
         unit = _resolve_unit(exchange)
+        compliance_block = flow_compliance_declarations()
+        modelling_section: dict[str, Any] = {
+            "LCIMethod": {
+                "typeOfDataSet": flow_type,
+            },
+        }
+        if compliance_block:
+            modelling_section["complianceDeclarations"] = compliance_block
+
         dataset = {
             "@xmlns": "http://lca.jrc.it/ILCD/Flow",
             "@xmlns:common": "http://lca.jrc.it/ILCD/Common",
@@ -329,12 +417,7 @@ class FlowPublisher:
                     "referenceToReferenceFlowProperty": "0",
                 },
             },
-            "modellingAndValidation": {
-                "LCIMethod": {
-                    "typeOfDataSet": flow_type,
-                },
-                "complianceDeclarations": flow_compliance_declarations(),
-            },
+            "modellingAndValidation": modelling_section,
             "administrativeInformation": {
                 "dataEntryBy": {
                     "common:timeStamp": _utc_timestamp(),
@@ -342,7 +425,7 @@ class FlowPublisher:
                         "@type": "source data set",
                         "@refObjectId": "a97a0155-0234-4b87-b4ce-a45da52f2a40",
                         "@uri": "../sources/a97a0155-0234-4b87-b4ce-a45da52f2a40.xml",
-                        "@version": "01.00.000",
+                        "@version": "01.01.000",
                         "common:shortDescription": _language_entry("ILCD format"),
                     },
                     "common:referenceToPersonOrEntityEnteringTheData": {
@@ -354,15 +437,13 @@ class FlowPublisher:
                     },
                 },
                 "publicationAndOwnership": {
-                    "common:dataSetVersion": "01.00.000",
+                    "common:dataSetVersion": "01.01.000",
                     "common:referenceToOwnershipOfDataSet": {
                         "@type": "contact data set",
                         "@refObjectId": "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8",
                         "@uri": "../contacts/f4b4c314-8c4c-4c83-968f-5b3c7724f6a8.xml",
-                        "@version": "01.00.000",
-                        "common:shortDescription": [
-                            _language_entry("Tiangong LCA Data Working Group")
-                        ],
+                        "@version": "01.01.000",
+                        "common:shortDescription": [_language_entry("Tiangong LCA Data Working Group")],
                     },
                 },
             },
@@ -372,7 +453,7 @@ class FlowPublisher:
             "@type": "flow data set",
             "@uri": f"https://tiangong.earth/flows/{uuid_value}",
             "@refObjectId": uuid_value,
-            "@version": "01.00.000",
+            "@version": "01.01.000",
             "common:shortDescription": _language_entry(exchange_name),
         }
         return FlowPublishPlan(
@@ -401,14 +482,30 @@ class ProcessPublisher:
     def publish(self, datasets: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for dataset in datasets:
-            payload = {"processDataSet": dataset}
-            process_info = dataset.get("processInformation", {})
+            process_payload: Mapping[str, Any]
+            if isinstance(dataset, Mapping):
+                candidate = dataset.get("process_data_set") or dataset.get("processDataSet")
+                if isinstance(candidate, Mapping):
+                    process_payload = candidate
+                else:
+                    process_payload = dataset
+            else:
+                raise SpecCodingError("Process dataset must be a mapping.")
+            payload = {"processDataSet": process_payload}
+            process_info = process_payload.get("processInformation", {})
             name_block = process_info.get("dataSetInformation", {}).get("name", {})
             process_name = _coerce_text(name_block.get("baseName"))
+            uuid_value = _coerce_text(process_info.get("dataSetInformation", {}).get("common:UUID"))
             if self._dry_run:
                 LOGGER.info("process_publish.dry_run", name=process_name)
                 continue
-            result = self._crud.insert_process(payload)
+            try:
+                result = self._crud.insert_process(payload)
+            except SpecCodingError:
+                try:
+                    result = self._crud.update_process(payload)
+                except SpecCodingError as exc:  # pragma: no cover - network errors bubbled up
+                    raise SpecCodingError(f"Failed to publish process '{process_name or uuid_value}' ({uuid_value})") from exc
             results.append(result)
         return results
 

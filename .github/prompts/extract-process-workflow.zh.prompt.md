@@ -15,7 +15,7 @@
 ## 0. 执行约定（避免无效迭代）
 - **先读原始资料**：动手前快速梳理论文原文或 `clean_text`，确认章节结构、数据表与功能单位。
 - **直接执行标准命令**：默认沿用下方列出的 Stage 1~3 CLI 模板（输入/输出路径遵循仓库约定），无需反复运行 `--help`。如需自定义参数，再单独查阅帮助。
-- **必须走标准阶段脚本**：除非用户特别说明，优先调用 `stage1`→`stage3`，不要手写长 JSON 或跳步生成中间文件。若缺少凭据（OpenAI、MCP、TIDAS），需第一时间告知用户并等待指示。入库需求可在 `stage3` 之后通过 `stage4_publish` 执行。
+- **必须走标准阶段脚本**：除非用户特别说明，优先调用 `stage1`→`stage3`，不要手写长 JSON 或跳步生成中间文件。若缺少凭据（OpenAI、MCP、TIDAS），需第一时间告知用户并等待指示。Stage 3 校验通过后会在使用同一批命令行参数的前提下自动触发发布，直接将流程、流与文献信息入库（无测试模式）。如 `artifacts/<run_id>/cache/published.json` 已存在，则默认跳过自动发布；若确认需要重发，删除该文件或在 Stage 3 中追加 `--force-publish`。只有在需要复核/调试时再手动执行 `stage4_publish`，正式发布会在完成后写回同名 `published.json` 摘要以便追踪。
 - **默认凭据已备妥**：标准环境下 `.secrets/secrets.toml` 由运维预先配置，Codex 直接开始执行各阶段即可；只有在脚本实际抛出缺少凭据或连接失败的异常时，再回溯检查密钥配置。
 - **在调用 LLM/MCP 前做输入校验**：例如检查 `clean_text` 是否非空、是否含有表格与单位，必要时提示用户补充。
 - **终态 JSON 要求**：最终交付的 `workflow_result.json` 必须基于已通过 Stage 3 制品校验的数据生成，去除调试字段、空结构或临时备注，确保各流程数据集严格符合 schema、内容“干干净净”可直接入库。
@@ -50,8 +50,8 @@
 | ---- | ---- | ---- | ---- |
 | 1 | `stage1_preprocess.py` | `artifacts/<run_id>/cache/stage1_clean_text.md` | 解析论文 Markdown/JSON，输出 `clean_text`。 |
 | 2 | `stage2_extract_processes.py` | `artifacts/<run_id>/cache/stage2_process_blocks.json` | 使用 OpenAI Responses 生成流程块。 |
-| 3 | `stage3_align_flows.py` | `artifacts/<run_id>/cache/stage3_alignment.json`、`…/cache/process_datasets.json`、`…/cache/tidas_validation.json`、`…/cache/workflow_result.json`，以及 `artifacts/<run_id>/exports/processes|flows|sources/` 下的 ILCD JSON | 调用 `FlowAlignmentService` 对齐交换量并验证提示质量，随后合并结果、生成 ILCD 制品并运行 `tidas_tools.validate`。 |
-| 4 (可选) | `stage4_publish.py` | `artifacts/<run_id>/cache/stage4_publish_preview.json` | 读取 Stage 3 产物，构造 `Database_CRUD_Tool` 负载；默认干跑，可加 `--commit` 发布流和流程数据。 |
+| 3 | `stage3_align_flows.py` | `artifacts/<run_id>/cache/stage3_alignment.json`、`…/cache/process_datasets.json`、`…/cache/tidas_validation.json`、`…/cache/workflow_result.json`，以及 `artifacts/<run_id>/exports/processes|flows|sources/` 下的 ILCD JSON | 调用 `FlowAlignmentService` 对齐交换量并验证提示质量，随后合并结果、生成 ILCD 制品、运行 `tidas_tools.validate`，并在校验通过后自动尝试入库（若检测到 `cache/published.json` 且未指定 `--force-publish` 则跳过）。 |
+| 4 (可选) | `stage4_publish.py` | `artifacts/<run_id>/cache/stage4_publish_preview.json` | 读取 Stage 3 产物，构造 `Database_CRUD_Tool` 负载；默认由 Stage 3 在校验成功后触发（受 `published.json` 标志控制），仅在需要重新发布或调试时手动运行。 |
 
 推荐执行序列（仓库根目录）：
 ```bash
@@ -61,9 +61,9 @@ uv run python scripts/stage2_extract_processes.py --run-id "$RUN_ID"
 uv run python scripts/stage3_align_flows.py --run-id "$RUN_ID"
 uv run python scripts/stage4_publish.py --run-id "$RUN_ID" \
   --publish-flows --publish-processes \
-  --update-alignment --update-datasets \
-  --commit  # 若仅预览可省略 --commit
+  --update-alignment --update-datasets
 ```
+Stage 3 校验通过后会自动调用上述发布脚本完成入库（全流程无干跑）。若 `artifacts/<run_id>/cache/published.json` 已存在，将默认跳过自动发布；确认需要重新提交时，删除该文件或在 Stage 3 指定 `--force-publish`。
 
 - `stage3_align_flows.py` 若检测到 `.secrets/secrets.toml` 中的 OpenAI 凭据，会自动启用 LLM 评分评估 MCP 返回的 10 个候选；否则退回本地相似度匹配。脚本会在对齐前校验每个交换是否同时具备 `exchangeName` 与 `FlowSearch hints`（字段要求见 §0），缺项时默认中断（仅可用 `--allow-missing-hints` 放行提示缺失）。当缺少 `exchangeName` 时，会优先从 `FlowSearch hints` 的多语言同义词中自动补足。输出的 `artifacts/<run_id>/cache/stage3_alignment.json` 同步携带 `process_id`、`matched_flows`、`unmatched_flows` 与 `origin_exchanges`，并在 CLI 中打印各流程的命中统计。
 
@@ -131,6 +131,7 @@ class WorkflowResult:
 - 每个流程块的交换量在独立线程提交检索任务，聚合 `matched_flows` 与 `origin_exchanges`；未命中只在日志中计数提醒。
 - Stage 3 脚本会按 §0 的 `FlowSearch hints` 规范校验 Stage 2 产物，必要时从同义词字段推断缺失名称，避免缺乏语义标签的交换直接进入 MCP 检索。
 - 匹配成功时写回 `referenceToFlowDataSet`，失败则保留原始交换量并记录原因。
+- 对于命中的流，Stage 3 必须将 `referenceToFlowDataSet.common:shortDescription` 写成 `baseName; treatmentStandardsRoutes; mixAndLocationTypes; flowProperties` 的拼接字符串（缺失字段填 `-`），确保流程交换量中可以直接读出名称、处理/路线、位置/场合以及数量信息。
 - 过程中输出 `flow_alignment.start`、`flow_alignment.exchange_failed` 等结构化日志，便于诊断。
 
 ## 6. Process Extraction
@@ -151,7 +152,7 @@ class WorkflowResult:
 
 ## 7. TIDAS Validation
 - Stage 3 的制品导出步骤会执行 `uv run python -m tidas_tools.validate -i artifacts/<run_id>/exports` 校验 ILCD 结构，并将结果写入 `artifacts/<run_id>/cache/tidas_validation.json`。
-- 若本地校验工具暂不可用，可在 Stage 3 追加 `--skip-artifact-validation` 并记录原因；在恢复校验前，`stage4_publish` 仅以干跑模式使用。
+- 若本地校验工具暂不可用，可在 Stage 3 追加 `--skip-artifact-validation` 并记录原因；在恢复校验前请避免额外触发发布，待校验恢复后再重新执行 Stage 3 以完成入库。
 
 ## 8. 工作流编排
 - `WorkflowOrchestrator` 顺序执行：`preprocess` → `extract_processes` → `align_flows` → `merge_datasets` → `validate` → `finalize`。
@@ -159,10 +160,30 @@ class WorkflowResult:
 
 ## 9. 验证建议
 - 单元测试优先覆盖：`json_utils` 清洗、`FlowSearchService` 过滤/缓存、`FlowAlignmentService` 降级处理、流程抽取各阶段的错误分支与 `merge_results` 容错。
-- 集成验证：使用最小论文样例依次执行 `stage1`→`stage3`，核对产物 schema、命中统计与校验报告；如需验证发布流程，再追加 `stage4_publish` 的干跑。
+- 集成验证：使用最小论文样例依次执行 `stage1`→`stage3`，核对产物 schema、命中统计与校验报告；如需复核发布负载，可额外手动运行 `stage4_publish`，当前工作流在校验通过后会自动入库。
 - 观测：启用 `configure_logging` JSON 输出并筛选 `flow_alignment.exchange_failed`、`process_extraction.parents_uncovered` 等关键事件，快速定位异常阶段。
 
 ## 10. 分类与地理辅助资源
 - `tidas_processes_category.json` (`src/tidas/schemas/tidas_processes_category.json`) 是流程分类的权威来源，覆盖 ISIC 树的各级代码与描述。若 Codex 需要确认分类路径，先使用 `uv run python scripts/list_process_category_children.py <code>` 逐层展开（`<code>` 为空时输出顶层，例如 `uv run python scripts/list_process_category_children.py 01`）。必要时可通过 `tiangong_lca_spec.tidas.get_schema_repository().resolve_with_references("tidas_processes_category.json")` 读取局部节点，再将相关分支文本粘贴到对 Codex 的提问里，帮助其在有限上下文里挑选正确的 `@classId` / `#text`。
 - 地理编码沿用 `tidas_locations_category.json` (`src/tidas/schemas/tidas_locations_category.json`)；用法与上面一致，命令为 `uv run python scripts/list_location_children.py <code>`（例如 `uv run python scripts/list_location_children.py CN` 查看中国内部层级）。在向 Codex 说明地理选项时，同样只摘录与当前流程相关的分支，避免传送整棵树。
 - 若流程涉及流分类，可调用 `uv run python scripts/list_product_flow_category_children.py <code>` 查看产品流分类（数据源 `tidas_flows_product_category.json`），或调用 `uv run python scripts/list_elementary_flow_category_children.py <code>` 查看初级流分类（数据源 `tidas_flows_elementary_category.json`）。
+
+## 11. Stage 4 发布与数据库 CRUD
+- `stage4_publish.py` 调用 `tiangong_lca_remote` 的 `Database_CRUD_Tool` 将 `flows`、`processes`、`sources` 入库；Stage 3 校验成功后会自动触发（若检测到 `cache/published.json` 且未指定 `--force-publish`，自动发布会跳过）。手动重跑时，`insert` 请求的 `id` 必须直接沿用导出制品中的 UUID：分别取 `flowInformation.dataSetInformation.common:UUID`、`processInformation.dataSetInformation.common:UUID`、`sourceInformation.dataSetInformation.common:UUID`。禁止生成其他标识或复用旧 run 的 ID。
+- 成功发布会在 `artifacts/<run_id>/cache/published.json` 写入时间戳及提交数量摘要；如需重新发布，删除该文件或在 Stage 3 添加 `--force-publish`。
+- `Database_CRUD_Tool` 入参包含：
+  - `operation`：`"select"`、`"insert"`、`"update"`、`"delete"`。
+  - `table`：`"flows"`、`"processes"`、`"sources"`、`"contacts"`、`"lifecyclemodels"`。
+  - `jsonOrdered`：`insert` / `update` 必填，传入完整的 ILCD 文档（如 `{"processDataSet": {...}}`），保持命名空间、时间戳、引用字段。
+  - `id`：`insert` / `update` / `delete` 必填，取自数据集 `dataSetInformation` 的 UUID。
+  - `version`：`update` / `delete` 必填，对应 Supabase `version` 列。
+  - 可选 `filters`、`limit` 仅在 `select` 时使用。
+- 实际运行中如果 `insert` 因 UUID 冲突失败，发布器会自动改用 `update` 重试；请确保 `administrativeInformation.publicationAndOwnership.common:dataSetVersion` 与目标记录保持一致。
+- 成功响应会回显 `id`、`version` 以及 `data` 数组；校验失败会抛出 `SpecCodingError`，直接根据错误中的 JSON 路径修正数据集再重试。
+- 入库自查清单：
+  - 保留 ILCD 根级属性（`@xmlns`、`@xmlns:common`、`@xmlns:xsi`、schemaLocation）并写入 `administrativeInformation.dataEntryBy.common:timeStamp`、`common:referenceToDataSetFormat`、`common:referenceToPersonOrEntityEnteringTheData`。
+  - 保持合规引用（ILCD 格式 UUID `a97a0155-0234-4b87-b4ce-a45da52f2a40`、权属 UUID `f4b4c314-8c4c-4c83-968f-5b3c7724f6a8`、联系人 UUID `1f8176e3-86ba-49d1-bab7-4eca2741cdc1`）并声明 `modellingAndValidation.LCIMethod.typeOfDataSet`。
+  - 流数据需补齐 `flowProperties.flowProperty`（质量属性 UUID `93a60a56-a3c8-11da-a746-0800200b9a66`）、`quantitativeReference.referenceToReferenceFlowProperty` 以及合适的 `classificationInformation` 或 `elementaryFlowCategorization`。
+  - 流程数据保留 Stage 3 的功能单位、交换量与 `modellingAndValidation`；来源数据保留文献元信息与发布时间。
+- 批量发布时优先按 `flows`→`processes`→`sources` 顺序提交，及时记录返回的 `id` / `version` 以备审计。
+- **Elementary flows**：排放/资源类初级流只能从现有数据库选择；若 Stage 3 仍返回 `unmatched:placeholder`，需要先修复提示或手工映射，Stage 4 不会为这类流生成新数据集。只有真实的产品/废物流在库中缺失时才允许按产品流的模板新建。

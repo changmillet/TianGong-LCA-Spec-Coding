@@ -13,9 +13,12 @@ EXPECTED_COMPLIANCE_DECLARATIONS = {
         "common:referenceToComplianceSystem": {
             "@refObjectId": "d92a1a12-2545-49e2-a585-55c259997756",
             "@type": "source data set",
-            "@uri": "../sources/d92a1a12-2545-49e2-a585-55c259997756.xml",
+            "@uri": ("https://lcdn.tiangong.earth/showSource.xhtml?" "uuid=d92a1a12-2545-49e2-a585-55c259997756&version=20.20.002"),
             "@version": "20.20.002",
-            "common:shortDescription": {"@xml:lang": "en", "#text": "ILCD Data Network - Entry-level"},
+            "common:shortDescription": {
+                "@xml:lang": "en",
+                "#text": "ILCD Data Network - Entry-level",
+            },
         },
         "common:approvalOfOverallCompliance": "Fully compliant",
     }
@@ -40,12 +43,7 @@ def _build_alignment_payload():
                         "exchangeName": "Electric power",
                         "exchangeDirection": "Input",
                         "unit": "kWh",
-                        "generalComment": {
-                            "#text": (
-                                "FlowSearch hints: en_synonyms=Electric power; Grid electricity | "
-                                "zh_synonyms=电力 | usage_context=Electricity purchased from grid"
-                            )
-                        },
+                        "generalComment": {"#text": ("FlowSearch hints: en_synonyms=Electric power; Grid electricity | " "zh_synonyms=电力 | usage_context=Electricity purchased from grid")},
                         "referenceToFlowDataSet": {"unmatched:placeholder": True},
                     }
                 ]

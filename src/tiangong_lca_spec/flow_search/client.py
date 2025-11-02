@@ -31,13 +31,11 @@ class FlowSearchClient:
     ) -> None:
         self._settings = settings or get_settings()
         self._server_name = self._settings.flow_search_service_name
-        self._tool_name = getattr(self._settings, "flow_search_tool_name", "Search_flows_Tool")
+        self._tool_name = getattr(self._settings, "flow_search_tool_name", "Search_Flows_Tool")
         self._mcp = mcp_client or MCPToolClient(self._settings)
         self._timeout_seconds = self._resolve_timeout()
         self._max_attempts = max(1, self._settings.max_retries)
-        self._context_char_limit = int(
-            getattr(self._settings, "flow_search_context_chars", DEFAULT_CONTEXT_LIMIT)
-        )
+        self._context_char_limit = int(getattr(self._settings, "flow_search_context_chars", DEFAULT_CONTEXT_LIMIT))
 
     def _build_arguments(
         self,
@@ -168,9 +166,7 @@ class FlowSearchClient:
                         normalized.append(flattened)
             return normalized
         if isinstance(raw, dict):
-            candidates = (
-                raw.get("candidates") or raw.get("flows") or raw.get("results") or raw.get("data")
-            )
+            candidates = raw.get("candidates") or raw.get("flows") or raw.get("results") or raw.get("data")
             if isinstance(candidates, list):
                 normalized: list[dict[str, Any]] = []
                 for item in candidates:
@@ -193,25 +189,89 @@ class FlowSearchClient:
         info = flow.get("flowInformation", {})
         data_info = info.get("dataSetInformation", {})
         name_block = data_info.get("name") or {}
-        base_name = _first_text(name_block.get("baseName"))
+        base_name = _preferred_language_text(name_block.get("baseName"))
         if not base_name:
             return None
         geography = _extract_geography(info.get("geography"))
+        flow_properties = _preferred_language_text(name_block.get("flowProperties")) or _preferred_language_text(
+            name_block.get("functionalUnitFlowProperties")
+        )
         return {
             "uuid": data_info.get("common:UUID") or flow.get("@uuid"),
             "base_name": base_name,
-            "treatment_standards_routes": _first_text(name_block.get("treatmentStandardsRoutes")),
-            "mix_and_location_types": _first_text(name_block.get("mixAndLocationTypes")),
-            "flow_properties": flow.get("flowProperties"),
-            "version": flow.get("administrativeInformation", {})
-            .get("publicationAndOwnership", {})
-            .get("common:dataSetVersion"),
-            "general_comment": _first_text(data_info.get("common:generalComment")),
+            "treatment_standards_routes": _preferred_language_text(name_block.get("treatmentStandardsRoutes")),
+            "mix_and_location_types": _preferred_language_text(name_block.get("mixAndLocationTypes")),
+            "flow_properties": flow_properties,
+            "version": flow.get("administrativeInformation", {}).get("publicationAndOwnership", {}).get("common:dataSetVersion"),
+            "general_comment": _preferred_language_text(data_info.get("common:generalComment")),
             "geography": geography,
-            "classification": data_info.get("classificationInformation", {})
-            .get("common:classification", {})
-            .get("common:class"),
+            "classification": data_info.get("classificationInformation", {}).get("common:classification", {}).get("common:class"),
         }
+
+
+ENGLISH_LANG_KEYS = (
+    "en",
+    "en-us",
+    "en-gb",
+    "english",
+)
+
+CHINESE_LANG_KEYS = (
+    "zh-hans",
+    "zh-cn",
+    "zh",
+    "\u7b80\u4f53\u4e2d\u6587",
+)
+
+
+def _preferred_language_text(value: Any) -> str | None:
+    english = _find_language_text(value, ENGLISH_LANG_KEYS)
+    if english:
+        return english
+    chinese = _find_language_text(value, CHINESE_LANG_KEYS)
+    if chinese:
+        return chinese
+    return _first_text(value)
+
+
+def _find_language_text(value: Any, language_keys: tuple[str, ...]) -> str | None:
+    normalized_targets = {_normalize_language_key(token) for token in language_keys}
+    return _find_language_text_recursive(value, normalized_targets)
+
+
+def _find_language_text_recursive(value: Any, language_targets: set[str]) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        for item in value:
+            match = _find_language_text_recursive(item, language_targets)
+            if match:
+                return match
+        return None
+    if isinstance(value, dict):
+        lang = value.get("@xml:lang") or value.get("xml:lang") or value.get("@lang") or value.get("lang")
+        lang_normalized = _normalize_language_key(str(lang)) if lang else None
+        if lang_normalized and lang_normalized in language_targets:
+            text = value.get("#text") or value.get("text") or value.get("@value")
+            if text:
+                return str(text)
+        for key, item in value.items():
+            if isinstance(key, str) and _normalize_language_key(key) in language_targets:
+                match = _first_text(item)
+                if match:
+                    return match
+        for item in value.values():
+            match = _find_language_text_recursive(item, language_targets)
+            if match:
+                return match
+        return None
+    if isinstance(value, str):
+        return value
+    return None
+
+
+def _normalize_language_key(token: str) -> str:
+    return token.lower().replace("_", "-").strip()
 
 
 def _first_text(value: Any) -> str | None:
@@ -246,11 +306,7 @@ def _extract_geography(raw_geo: Any) -> dict[str, Any] | None:
         return None
     location = raw_geo.get("locationOfOperationSupplyOrProduction") or raw_geo.get("location")
     if isinstance(location, dict):
-        code = (
-            location.get("@location") or location.get("code") or _first_text(location.get("name"))
-        )
-        description = _first_text(location.get("descriptionOfRestrictions")) or _first_text(
-            location.get("common:other")
-        )
+        code = location.get("@location") or location.get("code") or _first_text(location.get("name"))
+        description = _first_text(location.get("descriptionOfRestrictions")) or _first_text(location.get("common:other"))
         return {"code": code, "description": description}
     return None

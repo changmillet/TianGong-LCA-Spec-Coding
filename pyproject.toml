@@ -15,8 +15,8 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "jsonschema>=4.25.1",
     "openai>=2.6.0",
-    "tidas-tools>=0.0.16"
     "pyyaml>=6.0.2",
+    "tidas-tools>=0.0.17"
 ]
 
 [dependency-groups]
@@ -42,12 +42,12 @@ packages = ["src/tiangong_lca_spec"]
 include = ["src/tiangong_lca_spec", "README.md", "pyproject.toml"]
 
 [tool.black]
-line-length = 100
+line-length = 192
 target-version = ["py312"]
 include = "\\.pyi?$"
 
 [tool.ruff]
-line-length = 100
+line-length = 192
 target-version = "py312"
 
 [tool.ruff.lint]
