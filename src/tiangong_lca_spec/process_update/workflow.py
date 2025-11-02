@@ -61,7 +61,7 @@ class ProcessWriteWorkflow:
     def run(
         self,
         *,
-        user_id: str,
+        user_id: str | None,
         requirement_path: Path,
         translation_path: Path,
         output_dir: Path,
@@ -73,18 +73,17 @@ class ProcessWriteWorkflow:
         logger = WorkflowLogger(log_path)
         updater = ProcessJsonUpdater(translations, logger, resolver=self._resolver)
 
-        json_ids = self._repository.list_json_ids(user_id)
-        selected_ids = self._select_ids(json_ids, limit)
-        if not selected_ids:
-            raise SpecCodingError(f"No process JSON ids available for user '{user_id}'")
-
-        account_user_id = self._repository.detect_current_user_id()
-        if not account_user_id:
-            account_user_id = user_id.strip() if user_id else None
+        requested_user_id = user_id.strip() if isinstance(user_id, str) and user_id.strip() else None
+        account_user_id = requested_user_id or self._repository.detect_current_user_id()
         if not account_user_id:
             raise SpecCodingError(
                 "Unable to determine authenticated user id for write-process workflow"
             )
+
+        json_ids = self._repository.list_json_ids(account_user_id)
+        selected_ids = self._select_ids(json_ids, limit)
+        if not selected_ids:
+            raise SpecCodingError(f"No process JSON ids available for user '{account_user_id}'")
 
         output_dir.mkdir(parents=True, exist_ok=True)
         written_paths: list[Path] = []
@@ -130,7 +129,20 @@ class ProcessWriteWorkflow:
                 )
                 continue
 
-            document = self._repository.fetch_process_json(json_id)
+            try:
+                fetched_document = self._repository.fetch_process_json(json_id)
+            except SpecCodingError as exc:
+                message = str(exc)
+                if "Fetch_Process_JSON" in message or "call failed" in message:
+                    logger.log(
+                        f"[{json_id}] fetch tool unavailable ({message}); using record payload instead."
+                    )
+                else:
+                    logger.log(f"[{json_id}] failed to fetch JSON via tool ({message}); skipping update.")
+                    continue
+            else:
+                document = fetched_document
+
             analysis = updater.analyse(document, requirement_entries)
             scope_summary = analysis.describe_scope()
 

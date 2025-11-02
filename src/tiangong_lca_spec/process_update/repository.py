@@ -95,21 +95,28 @@ class ProcessRepositoryClient:
         return None
 
     def detect_current_user_id(self) -> str | None:
-        """Infer the authenticated user's id by fetching a writable record."""
+        """Infer the authenticated user's id by fetching a writable personal record."""
         payload = self._mcp.invoke_json_tool(
             self._service,
             "Database_CRUD_Tool",
             {
                 "operation": "select",
                 "table": self._list_table,
-                "filters": {"state_code": 0},
-                "limit": 1,
+                "filters": {"state_code": 0, "team_id": None},
+                "fields": ["user_id", "team_id"],
+                "limit": 10,
             },
         )
         data = payload.get("data") if isinstance(payload, Mapping) else None
-        if isinstance(data, list) and data:
-            row = data[0]
-            user_id = row.get("user_id") if isinstance(row, Mapping) else None
+        if not isinstance(data, list):
+            return None
+        for row in data:
+            if not isinstance(row, Mapping):
+                continue
+            team_id = row.get("team_id")
+            if isinstance(team_id, str) and team_id.strip():
+                continue
+            user_id = row.get("user_id")
             if isinstance(user_id, str) and user_id.strip():
                 return user_id.strip()
         return None

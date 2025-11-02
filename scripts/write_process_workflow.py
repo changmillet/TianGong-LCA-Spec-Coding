@@ -12,7 +12,12 @@ from tiangong_lca_spec.process_update import ProcessRepositoryClient, ProcessWri
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Populate remote process JSON fields.")
-    parser.add_argument("--user-id", required=True, help="User identifier to query MCP for.")
+    parser.add_argument(
+        "--user-id",
+        required=False,
+        default=None,
+        help="User identifier to query MCP for (defaults to secrets configuration when omitted).",
+    )
     parser.add_argument(
         "--requirement",
         default="test/requirement/write_data.yaml",
@@ -79,6 +84,8 @@ def main(argv: list[str] | None = None) -> None:
     service_name = args.service_name or settings.flow_search_service_name
     log_path = Path(args.log_file) if args.log_file else None
 
+    configured_user_id = settings.platform_user_id
+    effective_user_id = configured_user_id or (args.user_id.strip() if args.user_id else None)
     with MCPToolClient(settings) as client:
         repository = ProcessRepositoryClient(
             client,
@@ -90,7 +97,7 @@ def main(argv: list[str] | None = None) -> None:
         )
         workflow = ProcessWriteWorkflow(repository)
         workflow.run(
-            user_id=args.user_id,
+            user_id=effective_user_id,
             requirement_path=args.requirement,
             translation_path=args.translation,
             output_dir=args.output_dir,

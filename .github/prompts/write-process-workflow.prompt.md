@@ -12,7 +12,7 @@
 
 ## 0. 执行约定
 - **遵循标准脚本**：首选 `scripts/write_process_workflow.py` 触发更新流程（与提取工作流的 Stage 脚本共享 `_workflow_common` 工具）。确需自定义参数时再查看 `--help`。
-- **凭据先行确认**：默认 `.secrets/secrets.toml` 已配置 `TianGong_LCA_Remote.api_key` 等密钥。如 MCP 报 401/403，再检查密钥是否缺失或过期。
+- **凭据先行确认**：默认 `.secrets/secrets.toml` 已配置 `TianGong_LCA_Remote.api_key` 等密钥。如 MCP 报 401/403，再检查密钥是否缺失或过期。脚本会据此凭证推断当前账号的 `user_id`，若解析失败会直接抛错，因此首次运行建议先验证凭证是否匹配目标账号。
 - **输出目录固定**：所有中间文件、最终 JSON 及日志统一放置在 `artifacts/write_process/`，避免与其他工作流产物混淆。
 - **需求文件优先**：一切字段更新必须来自结构化需求（默认 `test/requirement/write_data.yaml`）。若要改动具体值，先更新需求文件，再重新运行工作流。
 - **日志必查**：`WorkflowLogger` 会将缺失映射、占位引用、更新冲突写入日志。只有在日志为空时才能视为本次批量更新完成。
@@ -35,11 +35,14 @@
 ## 2. 操作步骤
 
 ### Step 1：列出目标用户的流程 JSON ID
-- `ProcessWriteWorkflow` 调用 `ProcessRepositoryClient.list_json_ids()` 自动完成该步骤，输出保存至 `artifacts/write_process/user_<user_id>-ids.json`。脚本参数 `--user-id` 对应 `filters.user_id`。
+- 工作流初始化时会优先读取配置文件中 `[TianGong_LCA_Platform].user_id`（经由 `Settings.platform_user_id` 暴露）；若能取得值，则视为当前账号并跳过后续探测。
+- 当配置未提供 `user_id` 时，`ProcessWriteWorkflow` 才会调用 `ProcessRepositoryClient.detect_current_user_id()`，以 `state_code == 0` 且 `team_id` 为空的流程作为过滤条件识别个人账号。无法识别时直接抛出异常，提示补充配置。
+- 完成账号识别后，`ProcessRepositoryClient.list_json_ids()` 会按最终确定的 `user_id` 拉取流程 ID 列表，并输出至 `artifacts/write_process/user_<user_id>-ids.json`。`--limit` 参数通过 `_select_ids()` 控制取数上限（≤0 处理全部）。
 - 若需手工验证，可复用提取工作流中记录的 `Database_CRUD_Tool` 调用方式；出现空列表或接口异常立即写日志并中止。
 
 ### Step 2：获取原始流程 JSON
-- `ProcessRepositoryClient.fetch_process_json()` 会把远端 `json` 字段标准化为 Python 字典并写入 `artifacts/write_process/<process_id>.json`。脚本参数 `--limit` 控制抓取数量（≤0 处理全部）。
+- 在写入 JSON 前，工作流会先调用 `ProcessRepositoryClient.fetch_record()` 检查每条记录的 `state_code` 与 `user_id`：若流程处于只读状态 (`state_code != 0`) 或归属不同账号，则跳过更新并写日志。
+- `ProcessRepositoryClient.fetch_process_json()` 会把远端 `json` 字段标准化为 Python 字典并写入 `artifacts/write_process/<process_id>.json`。如返回值是字符串或嵌套列表，客户端会自动解包并尝试解析；解析失败或类型不支持时同样仅记录日志。
 - 如需排查异常，可参考提取工作流的 MCP 样板请求，但默认无需重复实现。
 
 ### Step 3：解析需求配置
@@ -48,12 +51,13 @@
 - `ProcessWriteWorkflow._select_ids()` 和 `ProcessJsonUpdater._locate_process_requirement()` 会组合 `baseName`/`treatmentStandardsRoutes`/`mixAndLocationTypes`/`functionalUnitFlowProperties` 进行匹配；无法匹配时仅应用 `global_updates` 并写日志。
 
 ### Step 4：应用字段映射并更新 JSON
-1. `ProcessJsonUpdater` 基于 `FIELD_MAPPINGS` 将需求条目落到 Schema 指定路径，相关行为与提取工作流中的 `build_tidas_process_dataset()` 一致：
+1. `ProcessJsonUpdater.analyse()` 会先比对 YAML 与原始 JSON，生成更新范围说明；若所有要求已经满足，则仅在日志内记录“requirements satisfied”并跳过写文件，同时输出 YAML 中可用但未匹配的流程名称与不支持的标签，方便二次确认。
+2. `ProcessJsonUpdater` 基于 `FIELD_MAPPINGS` 将需求条目落到 Schema 指定路径，相关行为与提取工作流中的 `build_tidas_process_dataset()` 一致：
    - **多语言**：生成 `{ "@xml:lang": "...", "#text": "..." }` 单体或列表。
    - **引用**：优先调用 `ReferenceMetadataResolver` 补齐 `@type` / `@version` / `@uri`。若远端缺元数据，则写入占位描述并记录日志。
    - **枚举/布尔**：通过翻译映射定位具体枚举值；布尔值统一输出 `"true"` / `"false"`。
-2. `exchange_updates` 支持对 `exchanges.exchange` 批量修正（目前 `match=all`）。若需求中出现未映射的标签或不支持的 match 规则，保持原值并写日志。
-3. `_post_update_cleanup()` 会对照 TIDAS schema 自动处理时间戳、空引用、多余列表结构，并在以下场景复用提取工作流的默认行为：
+3. `exchange_updates` 支持对 `exchanges.exchange` 批量修正（目前 `match=all`）。若需求中出现未映射的标签或不支持的 match 规则，保持原值并写日志。
+4. `_post_update_cleanup()` 会对照 TIDAS schema 自动处理时间戳、空引用、多余列表结构，并在以下场景复用提取工作流的默认行为：
    - `validation.review.@type` 缺失时自动设为 `"Not reviewed"`，并在该类型下移除 scope、reviewDetails、reviewReference。
    - `validation.review.common:scope`/`common:method` 空缺时补齐 `"Documentation"`。
    - `modellingAndValidation.complianceDeclarations.compliance` 缺失或不完整时，默认注入 EF 3.1 合规声明（短描述、URI、状态值均来源于 `test/requirement/compliance_declarations.md`）。
@@ -64,6 +68,7 @@
 - 日志由 `WorkflowLogger` 写入 `artifacts/write_process/write_process_workflow.log`。运行结束后检查该文件：
    - **空文件** → 本轮更新无需要人工处理的异常。
    - **非空** → 将日志内容同步给人工同事或在 PR 描述中说明。
+   - 若本轮无日志，`WorkflowLogger` 会自动删除旧的同名文件，避免残留历史警告。
 
 ## 3. 常见问题与诊断
 - **未解析到流程名称**：确认需求 YAML 中 `process_name` 是否与 UI 名字一致，必要时在 YAML 中添加更多组合名称或别名。

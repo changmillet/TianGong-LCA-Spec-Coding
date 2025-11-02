@@ -1,5 +1,4 @@
 # 写入字段需求（风电领域）
-# 依据 test.md 抽取的字段说明，采用与 write_data.yaml 一致的结构。
 
 global_updates:
   - ui_label: "建模信息——数据切断和完整性原则"
