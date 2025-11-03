@@ -109,6 +109,16 @@ FIELD_MAPPINGS: Mapping[str, FieldMapping] = {
         value_type="enum",
         ui_key="pages.process.view.administrativeInformation.licenseType",
     ),
+    "数据集一般性说明": FieldMapping(
+        label="过程信息——数据集一般性说明",
+        schema_path=(
+            "processInformation",
+            "dataSetInformation",
+            "common:generalComment",
+        ),
+        value_type="multilang",
+        ui_key="pages.process.view.processInformation.generalComment",
+    ),
     "混合和位置类型": FieldMapping(
         label="过程信息——混合和位置类型",
         schema_path=(
@@ -245,6 +255,14 @@ class ProcessJsonUpdater:
 
     EXCHANGE_FIELD_KEYS: Mapping[str, str] = {
         "数据推导类型/状态": "dataDerivationTypeStatus",
+    }
+    EXCHANGE_ENUM_LABELS: Mapping[str, str] = {
+        "measured": "Measured",
+        "calculated": "Calculated",
+        "estimated": "Estimated",
+        "unknownDerivation": "Unknown derivation",
+        "missingImportant": "Missing important",
+        "missingUnimportant": "Missing unimportant",
     }
 
     def __init__(
@@ -521,20 +539,37 @@ class ProcessJsonUpdater:
                 if isinstance(exchange, dict):
                     exchange[field_key] = value
 
-    @staticmethod
-    def _normalise_exchange_value(value: object) -> str:
+    def _normalise_exchange_value(self, value: object) -> str:
         if value is None:
             return ""
         if isinstance(value, dict):
             if not value:
                 return ""
-            if "zh" in value and value["zh"]:
-                return str(value["zh"])
+            # Prefer English value when available, fall back to zh or first entry.
             if "en" in value and value["en"]:
-                return str(value["en"])
-            first = next(iter(value.values()), "")
-            return str(first) if first is not None else ""
-        return str(value)
+                candidate = str(value["en"])
+            elif "zh" in value and value["zh"]:
+                candidate = str(value["zh"])
+            else:
+                first = next(iter(value.values()), "")
+                candidate = str(first) if first is not None else ""
+        else:
+            candidate = str(value)
+        candidate = candidate.strip()
+        if not candidate:
+            return ""
+        translated = self._map_exchange_enum(candidate)
+        return translated or candidate
+
+    def _map_exchange_enum(self, label: str) -> str | None:
+        key = self._translations.key_for_value(label)
+        if not key:
+            return None
+        needle = ".uncertaintyDistributionType."
+        if needle not in key:
+            return None
+        suffix = key.split(needle, 1)[-1]
+        return self.EXCHANGE_ENUM_LABELS.get(suffix)
 
     def _locate_process_requirement(
         self, process_dataset: dict, requirements: Sequence[ProcessRequirement]
@@ -730,6 +765,35 @@ class ProcessJsonUpdater:
             )
         return metadata
 
+    def _enrich_reference(self, reference: object, ref_type: str | None) -> dict | None:
+        ref_id: str | None = None
+        if isinstance(reference, dict):
+            candidate = reference.get("@refObjectId") or reference.get("refObjectId")
+            if isinstance(candidate, str) and candidate.strip():
+                ref_id = candidate.strip()
+        elif isinstance(reference, str) and reference.strip():
+            ref_id = reference.strip()
+        if not ref_id:
+            return None
+        metadata = self._resolver.resolve(ref_id, ref_type) if self._resolver else None
+        if metadata:
+            return metadata.to_global_reference()
+        result: dict[str, object]
+        if isinstance(reference, dict):
+            result = dict(reference)
+        else:
+            result = {}
+        result.setdefault("@refObjectId", ref_id)
+        result.setdefault("@type", ref_type or "Source data set")
+        result.setdefault("@version", "00.00.000")
+        result.setdefault("@uri", f"https://tiangong.earth/datasets/{ref_id}")
+        if "common:shortDescription" not in result:
+            result["common:shortDescription"] = {
+                "@xml:lang": "en",
+                "#text": f"Auto-filled metadata for {ref_id}",
+            }
+        return result
+
     def _format_enumeration_label(self, suffix: str) -> str:
         sentence = self._camel_to_sentence(suffix)
         if not sentence:
@@ -830,6 +894,10 @@ class ProcessJsonUpdater:
             reference = data_sources.get("referenceToDataSource")
             if self._is_empty_reference(reference):
                 data_sources.pop("referenceToDataSource", None)
+            else:
+                enriched = self._enrich_reference(reference, "Source data set")
+                if enriched:
+                    data_sources["referenceToDataSource"] = enriched
 
     def _normalise_exchanges(self, process_data_set: dict) -> None:
         exchanges = process_data_set.get("exchanges")
@@ -913,12 +981,16 @@ class ProcessJsonUpdater:
             self._logger.log(log_message + ".")
         if review_type == "Not reviewed":
             review.pop("common:scope", None)
+            review.pop("scope", None)
         else:
             review["common:scope"] = scope
-        review["scope"] = scope
+            review["scope"] = scope
 
         details = validation.get("common:reviewDetails") or validation.get("reviewDetails")
-        if self._is_empty_multilang(details):
+        if review_type == "Not reviewed":
+            validation.pop("common:reviewDetails", None)
+            validation.pop("reviewDetails", None)
+        elif self._is_empty_multilang(details):
             placeholder_details = {
                 "@xml:lang": "en",
                 "#text": "Review summary pending confirmation.",
@@ -926,47 +998,52 @@ class ProcessJsonUpdater:
             validation["common:reviewDetails"] = placeholder_details
             validation["reviewDetails"] = placeholder_details
             self._logger.log("Review details missing; inserted placeholder text.")
-        else:
-            if isinstance(details, dict):
-                validation["reviewDetails"] = details
+        elif isinstance(details, dict):
+            validation["reviewDetails"] = details
 
         reviewer_ref = validation.get("common:referenceToNameOfReviewerAndInstitution")
-        if self._is_empty_reference(reviewer_ref):
-            placeholder_ref = {
-                "@type": "Contact data set",
-                "@refObjectId": "00000000-0000-0000-0000-000000000002",
-                "@version": "1.0",
-                "@uri": "https://placeholder.example/reviewer",
-                "common:shortDescription": {
-                    "@xml:lang": "en",
-                    "#text": "Review contact pending confirmation.",
-                },
-            }
-            validation["common:referenceToNameOfReviewerAndInstitution"] = placeholder_ref
-            validation["referenceToNameOfReviewerAndInstitution"] = placeholder_ref
-            self._logger.log("Review contact reference missing; inserted placeholder reference.")
+        if review_type == "Not reviewed":
+            validation.pop("common:referenceToNameOfReviewerAndInstitution", None)
+            validation.pop("referenceToNameOfReviewerAndInstitution", None)
         else:
-            if isinstance(reviewer_ref, dict):
-                validation["referenceToNameOfReviewerAndInstitution"] = reviewer_ref
+            if self._is_empty_reference(reviewer_ref):
+                placeholder_ref = {
+                    "@type": "Contact data set",
+                    "@refObjectId": "00000000-0000-0000-0000-000000000002",
+                    "@version": "1.0",
+                    "@uri": "https://placeholder.example/reviewer",
+                    "common:shortDescription": {
+                        "@xml:lang": "en",
+                        "#text": "Review contact pending confirmation.",
+                    },
+                }
+                validation["common:referenceToNameOfReviewerAndInstitution"] = placeholder_ref
+                self._logger.log("Review contact reference missing; inserted placeholder reference.")
+            elif isinstance(reviewer_ref, dict):
+                validation["common:referenceToNameOfReviewerAndInstitution"] = reviewer_ref
+            validation.pop("referenceToNameOfReviewerAndInstitution", None)
 
         report_ref = validation.get("common:referenceToCompleteReviewReport")
-        if self._is_empty_reference(report_ref):
-            placeholder_report = {
-                "@type": "Source data set",
-                "@refObjectId": "00000000-0000-0000-0000-000000000003",
-                "@version": "1.0",
-                "@uri": "https://placeholder.example/review-report",
-                "common:shortDescription": {
-                    "@xml:lang": "en",
-                    "#text": "Review report reference pending confirmation.",
-                },
-            }
-            validation["common:referenceToCompleteReviewReport"] = placeholder_report
-            validation["referenceToCompleteReviewReport"] = placeholder_report
-            self._logger.log("Review report reference missing; inserted placeholder reference.")
+        if review_type == "Not reviewed":
+            validation.pop("common:referenceToCompleteReviewReport", None)
+            validation.pop("referenceToCompleteReviewReport", None)
         else:
-            if isinstance(report_ref, dict):
-                validation["referenceToCompleteReviewReport"] = report_ref
+            if self._is_empty_reference(report_ref):
+                placeholder_report = {
+                    "@type": "Source data set",
+                    "@refObjectId": "00000000-0000-0000-0000-000000000003",
+                    "@version": "1.0",
+                    "@uri": "https://placeholder.example/review-report",
+                    "common:shortDescription": {
+                        "@xml:lang": "en",
+                        "#text": "Review report reference pending confirmation.",
+                    },
+                }
+                validation["common:referenceToCompleteReviewReport"] = placeholder_report
+                self._logger.log("Review report reference missing; inserted placeholder reference.")
+            elif isinstance(report_ref, dict):
+                validation["common:referenceToCompleteReviewReport"] = report_ref
+            validation.pop("referenceToCompleteReviewReport", None)
 
     def _normalise_review_scope(self, scope: object) -> object | None:
         if isinstance(scope, list):

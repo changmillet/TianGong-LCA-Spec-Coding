@@ -28,7 +28,7 @@
    uv run pytest
    ```
 2. **需求/翻译文件**：
-   - `test/requirement/write_data.yaml`：声明全局字段与按流程名称匹配的定制字段，支持 `exchange_updates`。
+   - `test/requirement/write_data.yaml`：声明 `global_updates`、`process_updates`（可选）以及 `templates` + `process_bindings`。当绑定存在时，工作流仅处理绑定列表中的 JSON UUID，并按模板快速落地字段；未绑定的流程仍可通过 `process_updates` 按名称匹配。保留 `exchange_updates` 写法不变。
    - `test/requirement/pages_process.ts`：中文标签 → 英文 key 映射，供枚举解析与字段定位使用。
 3. **Schema 参考**：`src/tidas/schemas/tidas_processes.json` 可用于了解字段约束，必要时结合 `FIELD_MAPPINGS` 扩展支持的 UI 标签。
 
@@ -37,18 +37,17 @@
 ### Step 1：列出目标用户的流程 JSON ID
 - 工作流初始化时会优先读取配置文件中 `[TianGong_LCA_Platform].user_id`（经由 `Settings.platform_user_id` 暴露）；若能取得值，则视为当前账号并跳过后续探测。
 - 当配置未提供 `user_id` 时，`ProcessWriteWorkflow` 才会调用 `ProcessRepositoryClient.detect_current_user_id()`，以 `state_code == 0` 且 `team_id` 为空的流程作为过滤条件识别个人账号。无法识别时直接抛出异常，提示补充配置。
-- 完成账号识别后，`ProcessRepositoryClient.list_json_ids()` 会按最终确定的 `user_id` 拉取流程 ID 列表，并输出至 `artifacts/write_process/user_<user_id>-ids.json`。`--limit` 参数通过 `_select_ids()` 控制取数上限（≤0 处理全部）。
+- 完成账号识别后，`ProcessRepositoryClient.list_json_ids()` 会按最终确定的 `user_id` 拉取流程 ID 列表，并输出至 `artifacts/write_process/user_<user_id>-ids.json`。YAML 若配置了 `process_bindings`，脚本会从该列表中过滤出对应 UUID；`--limit` 仍可进一步裁剪（≤0 处理全部）。
 - 若需手工验证，可复用提取工作流中记录的 `Database_CRUD_Tool` 调用方式；出现空列表或接口异常立即写日志并中止。
 
 ### Step 2：获取原始流程 JSON
 - 在写入 JSON 前，工作流会先调用 `ProcessRepositoryClient.fetch_record()` 检查每条记录的 `state_code` 与 `user_id`：若流程处于只读状态 (`state_code != 0`) 或归属不同账号，则跳过更新并写日志。
-- `ProcessRepositoryClient.fetch_process_json()` 会把远端 `json` 字段标准化为 Python 字典并写入 `artifacts/write_process/<process_id>.json`。如返回值是字符串或嵌套列表，客户端会自动解包并尝试解析；解析失败或类型不支持时同样仅记录日志。
-- 如需排查异常，可参考提取工作流的 MCP 样板请求，但默认无需重复实现。
+- `ProcessRepositoryClient.fetch_record()` 返回的 `json_ordered`/`json` 字段即为远端流程数据，脚本优先使用 `json_ordered`，若缺失才回退到 `json`，并将其标准化成 Python 字典写入 `artifacts/write_process/<process_id>.json`。如载荷为字符串或嵌套列表，会自动尝试解包；解析失败或类型不支持时同样仅记录日志。
 
 ### Step 3：解析需求配置
-- `RequirementLoader` 将 `write_data.yaml` 解析为 `RequirementBundle`，覆盖 `global_updates` 与 `process_updates` 两种粒度；逻辑与提取工作流对 schema 的解析保持一致。
+- `RequirementLoader` 将 `write_data.yaml` 解析为 `RequirementBundle`。除 `global_updates` 与 `process_updates` 外，新增的 `templates` + `process_bindings` 支持“按 UUID 直配模板”。绑定存在时，解析结果会克隆模板字段挂到指定 UUID 上，并在日志中标记所用模板名称。
 - `PagesProcessTranslationLoader` 复用 `pages_process.ts` 的翻译条目，为 `ProcessJsonUpdater` 提供枚举、布尔映射。
-- `ProcessWriteWorkflow._select_ids()` 和 `ProcessJsonUpdater._locate_process_requirement()` 会组合 `baseName`/`treatmentStandardsRoutes`/`mixAndLocationTypes`/`functionalUnitFlowProperties` 进行匹配；无法匹配时仅应用 `global_updates` 并写日志。
+- 对于未绑定的流程，`ProcessWriteWorkflow` 仍会通过 `_locate_process_requirement()` 组合 `baseName` / `treatmentStandardsRoutes` / `mixAndLocationTypes` / `functionalUnitFlowProperties` 进行名称匹配；无法匹配时仅应用 `global_updates` 并写日志。若绑定的 UUID 在远端列表中缺失，会额外记录跳过原因，便于排查。
 
 ### Step 4：应用字段映射并更新 JSON
 1. `ProcessJsonUpdater.analyse()` 会先比对 YAML 与原始 JSON，生成更新范围说明；若所有要求已经满足，则仅在日志内记录“requirements satisfied”并跳过写文件，同时输出 YAML 中可用但未匹配的流程名称与不支持的标签，方便二次确认。
@@ -75,6 +74,7 @@
 - **引用字段缺元数据**：`ReferenceMetadataResolver` 依赖远端表（contacts/sources/flows/processes）。若 ID 仍落空，检查 Supabase 中是否存在对应记录，或请运营补充。
 - **枚举映射失败**：通常是翻译文件无对应项。可在 `pages_process.ts` 搜索中文标签，若缺失则需先补全翻译再运行。
 - **更新覆盖旧值**：如日志提示“replaced existing value”，说明脚本覆盖了原字段。若这是预期行为，可忽略；否则回溯需求配置是否填写正确。
+- **模板未生效**：确认 `process_bindings` 的模板名与 `templates` 中定义一致，并检查日志是否提示“bound requirement defined but JSON id not found”——若出现代表远端缺少该 UUID。
 - **多流程批量处理**：可设置 `--limit` 为更大值或 ≤0 处理全部 ID，并留意日志文件逐轮清理。
 
 ## 4. 结束清单

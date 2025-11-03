@@ -52,11 +52,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="MCP tool name used to list JSON identifiers.",
     )
     parser.add_argument(
-        "--fetch-tool",
-        default="Fetch_Process_JSON",
-        help="MCP tool name used to retrieve a process JSON document.",
-    )
-    parser.add_argument(
         "--list-table",
         default="processes",
         help="Database table used when listing JSON identifiers via Database_CRUD_Tool.",
@@ -91,7 +86,6 @@ def main(argv: list[str] | None = None) -> None:
             client,
             service_name,
             list_tool_name=args.list_tool,
-            fetch_tool_name=args.fetch_tool,
             list_table=args.list_table,
             list_limit=args.list_limit,
         )

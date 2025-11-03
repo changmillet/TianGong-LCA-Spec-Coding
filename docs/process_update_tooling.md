@@ -9,7 +9,7 @@
 - **`src/tiangong_lca_spec/process_update/repository.py` — `ProcessRepositoryClient`**  
   基于 MCP 工具封装了流程 JSON 的列举与获取逻辑，并支持对任意表执行单条记录查询，用于补齐引用类字段的元数据。
 - **`src/tiangong_lca_spec/process_update/requirements.py` — `RequirementLoader`**  
-  将 YAML 需求（如 `test/requirement/write_data.yaml`）解析成统一数据结构，支持多语言文本、引用字段、交换项补充等批量配置。
+  将 YAML 需求（如 `test/requirement/write_data.yaml`）解析成统一数据结构，现已支持 `global_updates`、`process_updates`、`templates` 以及 `process_bindings`。其中模板允许复用一组字段，再通过绑定按 JSON UUID 精确落库。
 - **`src/tiangong_lca_spec/process_update/translation.py` — `PagesProcessTranslationLoader`**  
   从 `pages_process.ts` 提取“中文标签 → i18n key”的映射，用于把需求里的界面文案定位到 JSON Schema 目标字段。
 - **`src/tiangong_lca_spec/process_update/updater.py` — `ProcessJsonUpdater`**  
@@ -21,17 +21,21 @@
 
 ## 关键输入
 
-1. **需求 YAML**（`test/requirement/write_data.yaml`）：声明全局字段与按流程名称匹配的定制字段，支持 `exchange_updates` 批量修正输入/输出段落，非常适合把从文献提取的描述、引用、定量信息结构化填入。
+1. **需求 YAML**（`test/requirement/write_data.yaml`）：可同时声明三类配置——
+   - `global_updates`：适用于账号内所有流程；
+   - `process_updates`：仍可按流程名称匹配；  
+   - `templates` + `process_bindings`：定义可复用字段模板，并通过绑定把模板应用到指定 JSON UUID。  
+   仍支持 `exchange_updates` 批量修正输入/输出段落，适合将文献提取的描述、引用、定量信息结构化填入。
 2. **翻译映射**（`test/requirement/pages_process.ts`）：提供界面中文标签到后台 key 的映射，保证需求配置与字段定位解耦。
 3. **工作流提示**（`.github/prompts/write-process-workflow.prompt.md`）：给出操作步骤、日志规范与远端工具约定，可作为运行 SOP。
 
 ## 运行流程
 
-1. 调用 `RequirementLoader.load()` 解析 YAML，得到 `RequirementBundle`（全局更新 + 按流程更新）。
+1. 调用 `RequirementLoader.load()` 解析 YAML，得到 `RequirementBundle`（包含全局更新、名称匹配配置以及按 UUID 克隆的模板绑定）。
 2. 调用 `PagesProcessTranslationLoader.load()`，建立中文标签到 UI key 的映射，供枚举解析等逻辑使用。
-3. 通过 `ProcessRepositoryClient.list_json_ids(user_id)` 获取目标用户的流程 JSON ID，并基于限制数量迭代。
-4. `ProcessRepositoryClient.fetch_process_json(json_id)` 拉取原始 JSON。
-5. 用 `ProcessJsonUpdater.apply(document, requirement_bundle)` 写入需求字段；遇到引用会调用 `ReferenceMetadataResolver` 补元数据；无法解析的项会记录日志。
+3. 通过 `ProcessRepositoryClient.list_json_ids(user_id)` 获取目标用户的流程 JSON ID；若需求文件声明了 `process_bindings`，则只会处理绑定出现的 UUID，并在日志里标注缺失或跳过原因。
+4. 使用 `ProcessRepositoryClient.fetch_record()` 读取流程记录，并优先取 `json_ordered`（缺失时回退 `json`）作为原始 JSON 数据。
+5. 用 `ProcessJsonUpdater.apply(document, requirement_bundle.for_json_id(json_id))` 写入需求字段：绑定的 UUID 会直接套用模板字段；未绑定的流程仍依赖名称匹配。遇到引用会调用 `ReferenceMetadataResolver` 补元数据；无法解析的项会记录日志。
 6. 将更新后的 JSON 写到 `artifacts/write_process/<json_id>.json` 等输出目录，可选记入日志。
 7. 按需通过 MCP 的 `Database_CRUD_Tool` 执行 `update` 将结果写回数据库（参见 prompt 指南）。
 
@@ -71,7 +75,6 @@ with MCPToolClient(settings) as client:
         client,
         settings.flow_search_service_name,
         list_tool_name="Database_CRUD_Tool",
-        fetch_tool_name="Fetch_Process_JSON",
     )
     workflow = ProcessWriteWorkflow(repository)
     workflow.run(

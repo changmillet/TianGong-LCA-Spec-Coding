@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Mapping
 
 from tiangong_lca_spec.core.exceptions import SpecCodingError
 
@@ -57,12 +57,27 @@ class ProcessRequirement:
     process_name: str
     fields: List[FieldRequirement]
     exchange_updates: List[ExchangeUpdate]
+    template_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class RequirementBundle:
     global_updates: List[FieldRequirement]
     process_updates: List[ProcessRequirement]
+    uuid_bindings: Mapping[str, ProcessRequirement]
+
+    def bound_requirement_for(self, json_id: str) -> ProcessRequirement | None:
+        return self.uuid_bindings.get(json_id)
+
+    def for_json_id(self, json_id: str) -> "RequirementBundle":
+        bound = self.uuid_bindings.get(json_id)
+        if not bound:
+            return self
+        return RequirementBundle(
+            global_updates=self.global_updates,
+            process_updates=[bound],
+            uuid_bindings=self.uuid_bindings,
+        )
 
 
 class RequirementLoader:
@@ -85,7 +100,13 @@ class RequirementLoader:
 
         global_updates = self._parse_field_updates(data.get("global_updates", []))
         process_updates = self._parse_process_updates(data.get("process_updates", []))
-        return RequirementBundle(global_updates=global_updates, process_updates=process_updates)
+        templates = self._parse_template_updates(data.get("templates"))
+        uuid_bindings = self._parse_process_bindings(data.get("process_bindings"), templates)
+        return RequirementBundle(
+            global_updates=global_updates,
+            process_updates=process_updates,
+            uuid_bindings=uuid_bindings,
+        )
 
     def _parse_field_updates(self, entries: list) -> List[FieldRequirement]:
         requirements: List[FieldRequirement] = []
@@ -98,6 +119,67 @@ class RequirementLoader:
             value = entry.get("value")
             requirements.append(self._build_field_requirement(label, value))
         return requirements
+
+    def _parse_template_updates(self, entries: object) -> dict[str, ProcessRequirement]:
+        if entries is None:
+            return {}
+        if not isinstance(entries, dict):
+            raise SpecCodingError("Templates must be provided as a mapping of keys to requirements.")
+
+        templates: dict[str, ProcessRequirement] = {}
+        for key, entry in entries.items():
+            if not isinstance(key, str) or not key.strip():
+                raise SpecCodingError("Template keys must be non-empty strings.")
+            if not isinstance(entry, dict):
+                raise SpecCodingError(f"Template '{key}' must be a mapping.")
+            process_name = entry.get("process_name")
+            fields = entry.get("fields") or []
+            exchange_updates = entry.get("exchange_updates") or []
+            field_requirements = [
+                self._build_field_requirement(item.get("ui_label"), item.get("value"))
+                for item in fields
+            ]
+            exchanges = [self._build_exchange_update(item) for item in exchange_updates]
+            requirement = ProcessRequirement(
+                process_name=process_name.strip() if isinstance(process_name, str) and process_name.strip() else "*",
+                fields=field_requirements,
+                exchange_updates=exchanges,
+                template_name=key.strip(),
+            )
+            templates[key.strip()] = requirement
+        return templates
+
+    def _parse_process_bindings(
+        self,
+        entries: object,
+        templates: Mapping[str, ProcessRequirement],
+    ) -> dict[str, ProcessRequirement]:
+        if entries is None:
+            return {}
+        if not isinstance(entries, dict):
+            raise SpecCodingError("process_bindings must be a mapping of JSON ids to template keys.")
+
+        bindings: dict[str, ProcessRequirement] = {}
+        for raw_id, template_key in entries.items():
+            if not isinstance(raw_id, str) or not raw_id.strip():
+                raise SpecCodingError("process_bindings requires string JSON ids.")
+            if not isinstance(template_key, str) or not template_key.strip():
+                raise SpecCodingError(
+                    f"process_bindings entry for '{raw_id}' must reference a template key."
+                )
+            template = templates.get(template_key.strip())
+            if template is None:
+                raise SpecCodingError(
+                    f"process_bindings entry for '{raw_id}' references unknown template "
+                    f"'{template_key}'."
+                )
+            bindings[raw_id.strip()] = ProcessRequirement(
+                process_name=template.process_name,
+                fields=list(template.fields),
+                exchange_updates=list(template.exchange_updates),
+                template_name=template.template_name,
+            )
+        return bindings
 
     def _parse_process_updates(self, entries: list) -> List[ProcessRequirement]:
         process_requirements: List[ProcessRequirement] = []

@@ -160,12 +160,12 @@ def test_updater_normalises_validation_and_compliance(
 
     validation = dataset["modellingAndValidation"]["validation"]
     review = validation["review"]
-    assert "scope" in review and review["scope"], "Expected review scope to be populated"
-    assert validation["reviewDetails"]["#text"], "Review details should contain placeholder text"
-    reviewer_ref = validation["common:referenceToNameOfReviewerAndInstitution"]
-    assert reviewer_ref["@type"] == "Contact data set"
-    report_ref = validation["common:referenceToCompleteReviewReport"]
-    assert report_ref["@type"] == "Source data set"
+    assert review["@type"] == "Not reviewed"
+    assert "scope" not in review
+    assert "reviewDetails" not in validation
+    assert "common:reviewDetails" not in validation
+    assert "common:referenceToNameOfReviewerAndInstitution" not in validation
+    assert "common:referenceToCompleteReviewReport" not in validation
 
     compliance = dataset["modellingAndValidation"]["complianceDeclarations"]["compliance"]
     assert isinstance(compliance, dict), "Compliance entry should be normalised to an object"
@@ -291,6 +291,34 @@ def test_process_write_workflow_skips_when_satisfied(
     assert "requirements satisfied" in content
 
 
+def test_requirement_loader_supports_templates_and_bindings() -> None:
+    loader = RequirementLoader()
+    bundle = loader.load(Path("test/requirement/write_data_xx.yaml"))
+
+    assert bundle.global_updates == []
+    assert bundle.process_updates == []
+    expected_ids = {
+        "d7b7144f-4fcd-4c6d-9c52-16824edc008b",
+        "012c079b-e14f-421b-94af-7b2d962721a4",
+        "aef876a0-dd1f-4e00-97c5-3e59a0cfb6ac",
+        "6a51981c-26bf-49c6-bebc-be1c1b934df6",
+        "7b12c46d-8070-4b1c-8325-dd4143fccbb2",
+        "4ac49ee2-b0fc-43a7-97fe-22aaa1750738",
+    }
+    assert set(bundle.uuid_bindings) == expected_ids
+
+    first = bundle.uuid_bindings["d7b7144f-4fcd-4c6d-9c52-16824edc008b"]
+    second = bundle.uuid_bindings["012c079b-e14f-421b-94af-7b2d962721a4"]
+    assert first is not second
+    assert first.template_name == "process_1_updates"
+    assert second.template_name == "process_1_updates"
+    assert any(field.label == "过程信息——混合和位置类型" for field in bundle.uuid_bindings["aef876a0-dd1f-4e00-97c5-3e59a0cfb6ac"].fields)
+
+    narrowed = bundle.for_json_id("d7b7144f-4fcd-4c6d-9c52-16824edc008b")
+    assert len(narrowed.process_updates) == 1
+    assert narrowed.process_updates[0].template_name == "process_1_updates"
+
+
 def test_process_write_workflow_skips_read_only(tmp_path: Path) -> None:
     repository = StubRepository(
         current_user_id="user",
@@ -368,6 +396,7 @@ def test_process_name_matching_supports_partial_segments(translation_lookup) -> 
                 exchange_updates=[],
             )
         ],
+        uuid_bindings={},
     )
 
     analysis = updater.analyse(document, requirements)
@@ -406,7 +435,86 @@ def test_process_name_matching_supports_wildcards(translation_lookup) -> None:
                 exchange_updates=[],
             )
         ],
+        uuid_bindings={},
     )
 
     analysis = updater.analyse(document, requirements)
     assert analysis.matched_process_name == "风力发电机组制造; *; 生产组合"
+
+
+def test_process_write_workflow_uses_template_bindings(tmp_path: Path) -> None:
+    class DummyResolver:
+        def resolve(self, ref_id, ref_type=None):
+            return None
+
+    def make_document(base_name: str, treatment: str) -> dict:
+        return {
+            "processDataSet": {
+                "processInformation": {
+                    "dataSetInformation": {
+                        "name": {
+                            "baseName": {"@xml:lang": "zh", "#text": base_name},
+                            "treatmentStandardsRoutes": {"@xml:lang": "zh", "#text": treatment},
+                            "mixAndLocationTypes": {"@xml:lang": "zh", "#text": "技术组合"},
+                            "functionalUnitFlowProperties": {
+                                "@xml:lang": "zh",
+                                "#text": "35-330kV",
+                            },
+                        }
+                    }
+                }
+            }
+        }
+
+    ids = [
+        "d7b7144f-4fcd-4c6d-9c52-16824edc008b",
+        "012c079b-e14f-421b-94af-7b2d962721a4",
+        "unused-process",
+    ]
+    documents = {
+        "d7b7144f-4fcd-4c6d-9c52-16824edc008b": make_document("流程一", "上游"),
+        "012c079b-e14f-421b-94af-7b2d962721a4": make_document("流程二", "上游"),
+        "unused-process": make_document("未绑定流程", "其他"),
+    }
+    records = {
+        json_id: {
+            "state_code": 0,
+            "user_id": "user",
+            "json": json.loads(json.dumps(documents[json_id])),
+        }
+        for json_id in ids
+    }
+
+    repository = StubRepository(
+        current_user_id="user",
+        ids=ids,
+        records=records,
+        documents=documents,
+    )
+    workflow = ProcessWriteWorkflow(repository, resolver=DummyResolver())
+
+    output_dir = tmp_path / "output"
+    log_path = tmp_path / "workflow.log"
+    written = workflow.run(
+        user_id="user",
+        requirement_path=Path("test/requirement/write_data_xx.yaml"),
+        translation_path=Path("test/requirement/pages_process.ts"),
+        output_dir=output_dir,
+        log_path=log_path,
+        limit=0,
+    )
+
+    expected_outputs = {
+        output_dir / "d7b7144f-4fcd-4c6d-9c52-16824edc008b.json",
+        output_dir / "012c079b-e14f-421b-94af-7b2d962721a4.json",
+    }
+    assert set(written) == expected_outputs
+    for path in expected_outputs:
+        content = json.loads(path.read_text(encoding="utf-8"))
+        publication = content["processDataSet"]["administrativeInformation"]["publicationAndOwnership"]
+        assert publication["common:licenseType"] == "Free of charge for all users and uses"
+
+    assert "unused-process" not in {item.stem for item in written}
+    log_text = log_path.read_text(encoding="utf-8")
+    assert "using bound requirement template 'process_1_updates'" in log_text
+    assert "[aef876a0-dd1f-4e00-97c5-3e59a0cfb6ac] bound requirement defined but JSON id not found" in log_text

@@ -81,7 +81,21 @@ class ProcessWriteWorkflow:
             )
 
         json_ids = self._repository.list_json_ids(account_user_id)
-        selected_ids = self._select_ids(json_ids, limit)
+        bound_ids = list(requirement_entries.uuid_bindings.keys())
+        if bound_ids:
+            selected_ids: list[str] = []
+            for bound_id in bound_ids:
+                if bound_id in json_ids:
+                    selected_ids.append(bound_id)
+                else:
+                    logger.log(
+                        f"[{bound_id}] bound requirement defined but JSON id not found for user "
+                        f"'{account_user_id}'; skipping."
+                    )
+            if limit > 0:
+                selected_ids = selected_ids[:limit]
+        else:
+            selected_ids = self._select_ids(json_ids, limit)
         if not selected_ids:
             raise SpecCodingError(f"No process JSON ids available for user '{account_user_id}'")
 
@@ -111,7 +125,7 @@ class ProcessWriteWorkflow:
                 )
                 continue
 
-            document_payload = record.get("json") or record.get("json_ordered")
+            document_payload = record.get("json_ordered") or record.get("json")
             if isinstance(document_payload, str):
                 try:
                     document = json.loads(document_payload)
@@ -129,21 +143,15 @@ class ProcessWriteWorkflow:
                 )
                 continue
 
-            try:
-                fetched_document = self._repository.fetch_process_json(json_id)
-            except SpecCodingError as exc:
-                message = str(exc)
-                if "Fetch_Process_JSON" in message or "call failed" in message:
-                    logger.log(
-                        f"[{json_id}] fetch tool unavailable ({message}); using record payload instead."
-                    )
-                else:
-                    logger.log(f"[{json_id}] failed to fetch JSON via tool ({message}); skipping update.")
-                    continue
-            else:
-                document = fetched_document
+            bound_requirement = requirement_entries.bound_requirement_for(json_id)
+            if bound_requirement and bound_requirement.template_name:
+                logger.log(
+                    f"[{json_id}] using bound requirement template "
+                    f"'{bound_requirement.template_name}'."
+                )
+            active_requirements = requirement_entries.for_json_id(json_id)
 
-            analysis = updater.analyse(document, requirement_entries)
+            analysis = updater.analyse(document, active_requirements)
             scope_summary = analysis.describe_scope()
 
             if not analysis.needs_update():
@@ -170,7 +178,7 @@ class ProcessWriteWorkflow:
                     f"[{json_id}] no matching process requirement found in: "
                     + ", ".join(analysis.available_process_names)
                 )
-            updated_document = updater.apply(document, requirement_entries)
+            updated_document = updater.apply(document, active_requirements)
             target_path = output_dir / f"{json_id}.json"
             target_path.write_text(
                 json.dumps(updated_document, ensure_ascii=False, indent=2),
