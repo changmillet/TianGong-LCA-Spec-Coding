@@ -1,0 +1,22 @@
+global_updates:
+- ui_label: 建模信息——数据切断和完整性原则
+  value:
+    zh: 本清单遵循了既定的切断规则。在完整性方面，本数据集已包含所有已知的、对系统功能有显著贡献的物质流、能量流和排放流。
+    en: This inventory follows established cut-off rules. Regarding completeness,
+      this dataset includes all known elementary flows, energy flows, and emissions
+      that significantly contribute to the system's function.
+- ui_label: 管理信息——数据集委托方
+  value: f4b4c314-8c4c-4c83-968f-5b3c7724f6a8
+- ui_label: 管理信息——数据集生成者/建模者
+  value: 6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb
+- ui_label: 管理信息——数据录入人
+  value: 6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb
+- ui_label: 管理信息——数据集拥有者
+  value: f4b4c314-8c4c-4c83-968f-5b3c7724f6a8
+- ui_label: 管理信息——数据集格式
+  value: a97a0155-0234-4b87-b4ce-a45da52f2a40
+- ui_label: 管理信息——版权？
+  value: 否
+- ui_label: 管理信息——许可类型
+  value: 对所有用户和适用类型免费
+process_bindings: {}

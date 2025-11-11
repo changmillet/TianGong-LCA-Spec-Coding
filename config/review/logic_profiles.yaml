@@ -1,0 +1,38 @@
+# Declare review logic profiles. Extend the check identifiers in code as needed.
+# Common check identifiers already implemented:
+#   - numeric_balance
+#   - source_consistency
+#   - field_content
+#
+# Additional domain-specific checks below are named to reflect ISO 14071 and PEF requirements;
+# implement the corresponding handlers in the review workflow to activate them.
+
+default:
+  description: Base profile for automated review without regulatory tailoring.
+  checks:
+    - numeric_balance
+    - source_consistency
+
+iso_14071_critical_review:
+  description: Aligns with ISO 14071 (2024) critical review process requirements.
+  inherits: default
+  field_definitions:
+    - config/review/field_definitions_iso.yaml
+  checks:
+    - field_content
+
+pef_verification_validation:
+  description: Conforms to PEF Annex (Section 8) verification & validation obligations.
+  inherits: default
+  field_definitions:
+    - config/review/field_definitions_pef.yaml
+  checks:
+    - field_content
+
+combined_iso_pef:
+  description: Use when both ISO 14071 and PEF verification requirements apply.
+  inherits: iso_14071_critical_review
+  field_definitions:
+    - config/review/field_definitions_pef.yaml
+  checks:
+    - field_content

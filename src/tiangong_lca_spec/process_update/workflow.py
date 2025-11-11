@@ -102,7 +102,11 @@ class ProcessWriteWorkflow:
         output_dir.mkdir(parents=True, exist_ok=True)
         written_paths: list[Path] = []
         for json_id in selected_ids:
-            record = self._repository.fetch_record("processes", json_id)
+            record = self._repository.fetch_record(
+                "processes",
+                json_id,
+                preferred_user_id=account_user_id,
+            )
             if not record:
                 logger.log(f"[{json_id}] record not found; skipping update.")
                 continue

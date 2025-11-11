@@ -1,0 +1,26 @@
+default:
+  scope: Documentation
+  methods:
+    - Energy balance
+    - Mass balance
+
+iso_14071_critical_review:
+  scope: Documentation
+  methods:
+    - Documentation
+    - Validation of data sources
+
+pef_verification_validation:
+  scope: Life cycle inventory methods
+  methods:
+    - Validation of data sources
+    - Sample tests on calculations
+    - Compliance with ISO 14040 to 14044
+
+combined_iso_pef:
+  scope: Life cycle inventory methods
+  methods:
+    - Documentation
+    - Validation of data sources
+    - Sample tests on calculations
+    - Compliance with ISO 14040 to 14044

@@ -1,0 +1,56 @@
+general_information:
+  dataset_locator: 待补充
+  commissioners:
+    - 待补充
+  reviewers:
+    - name: 天工数据审查团队
+      affiliation: Tiangong LCA Data Working Group
+      contact: review@tiangong.earth
+      reviewer_type: Type 2 (Independent external review)
+  compliance_system: Environmental Footprint (EF) 3.1 guideline
+  ef_reference_package: 待补充
+  review_completion_date: 待补充
+
+compliance_assessment:
+  ef_requirements:
+    status: Pending
+    comments: 自动化审核未覆盖 EF 专项条款，请人工确认。
+  allocation_rules:
+    status: Pending
+    comments: 请确认分配假设与原始文档一致。
+  cff:
+    status: Pending
+    comments: 如涉及循环足迹公式，请补充实施说明。
+  lcia_results:
+    status: Pending
+    comments: 需核对 LCIA 结果一致性。
+  nomenclature:
+    status: Pending
+    comments: 审查命名是否遵循 EF 参考包。
+  documentation:
+    status: Pending
+    comments: 核对 ILCD 文档是否完整。
+  ilcd_format:
+    status: Pending
+    comments: 确认文档格式符合 ILCD 要求。
+  ilcd_validator:
+    status: Pending
+    comments: 如已运行 ILCD 验证器，请记录结果。
+  data_quality:
+    status: Pending
+    comments: 填写数据质量评级。
+  cut_off:
+    status: Pending
+    comments: 说明截断准则的处理方式。
+  additional_info:
+    status: Pending
+    comments: 其他补充信息。
+
+references:
+  - 待补充
+
+declaration: 审查人声明，该数据集的合规结论待最终确认。
+
+signature:
+  reviewers:
+    - 天工数据审查团队（签名） _______________

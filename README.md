@@ -106,3 +106,11 @@ uv run tidas-validate -i artifacts
 ```
 
 如需调整服务名称或地址，可直接在 `.secrets/secrets.toml` 对应节内覆盖 `service_name`、`url` 等字段，或使用实际环境变量覆盖 `LCA_*` 前缀的设置。
+
+### 将提示转换为内联代码并执行示例
+```bash
+uv run python scripts/convert_prompt_to_inline.py --source-json test/data/test_process.json
+
+# 危险操作：直接执行转换后的内联prompt（请确保已了解风险）
+codex exec --dangerously-bypass-approvals-and-sandbox "$(cat inline_prompt.txt)"
+```

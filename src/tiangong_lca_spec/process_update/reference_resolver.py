@@ -139,10 +139,37 @@ class ReferenceMetadataResolver:
         self, section: Mapping[str, Any]
     ) -> list[tuple[str, str]]:
         info = section.get("flowInformation", {}).get("dataSetInformation", {})
+        combos = self._build_flow_name_combinations(info.get("name"))
+        if combos:
+            return combos
         entries = self._extract_multilang_entries(info.get("name"))
         if entries:
             return entries
         return self._extract_multilang_entries(info.get("common:shortName"))
+
+    def _build_flow_name_combinations(self, name_section: Any) -> list[tuple[str, str]]:
+        if not isinstance(name_section, Mapping):
+            return []
+        ordered_fields = [
+            name_section.get("baseName"),
+            name_section.get("treatmentStandardsRoutes"),
+            name_section.get("mixAndLocationTypes"),
+            name_section.get("functionalUnitFlowProperties")
+            or name_section.get("flowProperties"),
+        ]
+        combined: dict[str, list[str]] = {}
+        for field in ordered_fields:
+            parts = self._extract_multilang_entries(field)
+            if not parts:
+                continue
+            for lang, text in parts:
+                combined.setdefault(lang, []).append(text)
+        results: list[tuple[str, str]] = []
+        for lang, pieces in combined.items():
+            joined = "; ".join(piece for piece in pieces if piece)
+            if joined:
+                results.append((lang, joined))
+        return results
 
     def _extract_processDataSet_descriptions(
         self, section: Mapping[str, Any]

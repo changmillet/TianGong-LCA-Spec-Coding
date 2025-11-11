@@ -117,10 +117,34 @@ templates:
 
 process_bindings:
   # 在此列出 JSON UUID 与模板名的对应关系，例如：
-  # 8d0a7571-e276-4057-a6dc-67a64802c33f: process_1_updates
-  d7b7144f-4fcd-4c6d-9c52-16824edc008b: process_1_updates
   012c079b-e14f-421b-94af-7b2d962721a4: process_1_updates
-  aef876a0-dd1f-4e00-97c5-3e59a0cfb6ac: process_2_updates
-  6a51981c-26bf-49c6-bebc-be1c1b934df6: process_2_updates
-  7b12c46d-8070-4b1c-8325-dd4143fccbb2: process_3_updates
-  4ac49ee2-b0fc-43a7-97fe-22aaa1750738: process_3_updates
+  19ad4903-6c2f-40f0-9fa0-a4e2151183f0: process_1_updates
+  a98eb888-d7d8-4344-acd8-95cc89d3e2fc: process_1_updates
+  de11b6fe-163b-4c6a-b23a-eeeee55a5ec4: process_1_updates
+  aa50ae6c-3630-478f-a62c-ea60d72e22b1: process_1_updates
+  e86f05dc-7556-4915-b8a3-6d3c3b8f445d: process_1_updates
+  db5db9b5-815c-4d68-8438-a147dd3c9b6d: process_1_updates
+  9c0181bc-7a8b-4f8a-b3f8-a125a0481baf: process_1_updates
+  8843f977-d14a-4c52-91a5-cd3c89866c7e: process_1_updates
+  bc47862e-6bbc-4cd5-925f-2d3f25b8ec7d: process_1_updates
+  6861c7ba-788c-4895-8500-415ad7436f74: process_1_updates
+  1ffbf228-f844-4f39-a352-40ac45bcd467: process_1_updates
+  dd43ded0-22f1-4947-bf87-a8149de3e78e: process_1_updates
+  23d50a35-3d36-4c0b-9dd8-66da150b5a24: process_1_updates
+  179478ba-2be8-4852-87f7-9efabc215db7: process_1_updates
+  58366d1c-da6c-4542-bbfc-36622e5aebc8: process_1_updates
+  954f5a62-6eae-4b1e-a9dd-5a8af5a59ebe: process_1_updates
+  11f864f7-ef8c-46d2-bc28-ee0969a0c299: process_1_updates
+  5fb81e93-8f3f-4033-8ea6-4878103f353b: process_1_updates
+  626e3627-4aa8-4694-82a3-c88de16122a3: process_1_updates
+  13879617-347b-4b50-ba33-7074bcc026af: process_1_updates
+  986c93a2-4150-4e9f-8cd4-1c866f385df6: process_1_updates
+  730f749c-5dc6-4a89-a64b-ab6b1e84af85: process_1_updates
+  727c4425-d432-49cc-a9bd-84132aa2743d: process_1_updates
+  850be60c-04eb-4955-a2cd-eeb57078b959: process_1_updates
+  1de301ae-7391-47ba-8533-6c30e1156534: process_1_updates
+  3af7d8eb-1ad0-4cf7-bf33-bb0ea7cba323: process_1_updates
+  1ddc7ed1-5d28-4fd6-a4a0-f272e65fce73: process_1_updates
+
+
+

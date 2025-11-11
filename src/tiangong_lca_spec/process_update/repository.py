@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Mapping, Sequence
 
 from tiangong_lca_spec.core.exceptions import SpecCodingError
 from tiangong_lca_spec.core.mcp_client import MCPToolClient
@@ -58,8 +58,15 @@ class ProcessRepositoryClient:
             )
         return ids
 
-    def fetch_record(self, table: str, record_id: str) -> Mapping[str, Any] | None:
+    def fetch_record(
+        self,
+        table: str,
+        record_id: str,
+        *,
+        preferred_user_id: str | None = None,
+    ) -> Mapping[str, Any] | None:
         """Fetch a generic record from the MCP database using Database CRUD."""
+        record_limit = 20 if table == "processes" else 1
         payload = self._mcp.invoke_json_tool(
             self._service,
             "Database_CRUD_Tool",
@@ -67,12 +74,12 @@ class ProcessRepositoryClient:
                 "operation": "select",
                 "table": table,
                 "filters": {"id": record_id},
-                "limit": 1,
+                "limit": record_limit,
             },
         )
         data = payload.get("data") if isinstance(payload, Mapping) else None
         if isinstance(data, list) and data:
-            record = data[0]
+            record = self._select_preferred_record(data, preferred_user_id=preferred_user_id)
             if isinstance(record, Mapping):
                 return record
         return None
@@ -134,5 +141,83 @@ class ProcessRepositoryClient:
                             ids.append(value.strip())
                             break
         return [item for item in ids if item]
+
+    @staticmethod
+    def _select_preferred_record(
+        rows: Sequence[Mapping[str, Any]],
+        *,
+        preferred_user_id: str | None = None,
+    ) -> Mapping[str, Any] | None:
+        preferred: Mapping[str, Any] | None = None
+        for row in rows:
+            if not isinstance(row, Mapping):
+                continue
+            if preferred is None:
+                preferred = row
+                continue
+            if ProcessRepositoryClient._record_has_priority(
+                row,
+                preferred,
+                preferred_user_id=preferred_user_id,
+            ):
+                preferred = row
+        return preferred
+
+    @staticmethod
+    def _record_has_priority(
+        candidate: Mapping[str, Any],
+        current: Mapping[str, Any],
+        *,
+        preferred_user_id: str | None = None,
+    ) -> bool:
+        if preferred_user_id:
+            candidate_matches = ProcessRepositoryClient._matches_user(
+                candidate.get("user_id"),
+                preferred_user_id,
+            )
+            current_matches = ProcessRepositoryClient._matches_user(
+                current.get("user_id"),
+                preferred_user_id,
+            )
+            if candidate_matches != current_matches:
+                return candidate_matches
+
+        candidate_priority = 1 if candidate.get("state_code") == 0 else 0
+        current_priority = 1 if current.get("state_code") == 0 else 0
+        if candidate_priority != current_priority:
+            return candidate_priority > current_priority
+
+        candidate_version = ProcessRepositoryClient._parse_version(candidate.get("version"))
+        current_version = ProcessRepositoryClient._parse_version(current.get("version"))
+        if candidate_version and current_version and candidate_version != current_version:
+            return candidate_version > current_version
+        if candidate_version and not current_version:
+            return True
+        if current_version and not candidate_version:
+            return False
+
+        return False
+
+    @staticmethod
+    def _parse_version(value: Any) -> tuple[int, ...] | None:
+        if not isinstance(value, str):
+            return None
+        parts = value.split(".")
+        numbers: list[int] = []
+        for part in parts:
+            part = part.strip()
+            if not part:
+                return None
+            try:
+                numbers.append(int(part))
+            except ValueError:
+                return None
+        return tuple(numbers)
+
+    @staticmethod
+    def _matches_user(value: Any, expected: str) -> bool:
+        if not isinstance(value, str) or not value:
+            return False
+        return value.strip() == expected.strip()
 
 __all__ = ["ProcessRepositoryClient"]

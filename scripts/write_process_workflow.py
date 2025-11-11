@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from tiangong_lca_spec.core.config import get_settings
 from tiangong_lca_spec.core.mcp_client import MCPToolClient
 from tiangong_lca_spec.process_update import ProcessRepositoryClient, ProcessWriteWorkflow
+from tiangong_lca_spec.publishing.crud import DatabaseCrudClient
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,21 +61,48 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--list-limit",
         type=int,
-        default=5000,
-        help="Maximum number of rows to request when listing JSON identifiers.",
+        default=2000,
+        help="Maximum number of rows to request when listing JSON identifiers (tune down if the MCP service closes long queries).",
     )
     parser.add_argument(
         "--limit",
         type=int,
-        default=1,
-        help="Number of JSON identifiers to process (<=0 means all).",
+        default=0,
+        help="Number of JSON identifiers to process (>0 limits count, <=0 means all; default: all).",
+    )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help=(
+            "After generating JSON files, prompt for each dataset and update the remote "
+            "database when confirmed."
+        ),
+    )
+    parser.add_argument(
+        "--publish-all",
+        action="store_true",
+        help=(
+            "Publish all generated JSON files without interactive confirmation. "
+            "Requires --publish."
+        ),
     )
     return parser
+
+
+def _append_publish_log(log_path: Path | None, message: str) -> None:
+    if log_path is None:
+        return
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"{message}\n")
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.publish_all and not args.publish:
+        parser.error("--publish-all requires --publish")
 
     settings = get_settings()
     service_name = args.service_name or settings.flow_search_service_name
@@ -90,7 +119,7 @@ def main(argv: list[str] | None = None) -> None:
             list_limit=args.list_limit,
         )
         workflow = ProcessWriteWorkflow(repository)
-        workflow.run(
+        written_paths = workflow.run(
             user_id=effective_user_id,
             requirement_path=args.requirement,
             translation_path=args.translation,
@@ -98,6 +127,31 @@ def main(argv: list[str] | None = None) -> None:
             log_path=log_path,
             limit=args.limit,
         )
+        if not args.publish:
+            return
+
+        if args.publish and not written_paths:
+            print("No datasets were updated; nothing to publish.")
+            return
+
+        crud_client = DatabaseCrudClient(settings, mcp_client=client)
+        for dataset_path in written_paths:
+            json_id = dataset_path.stem
+            if not args.publish_all:
+                prompt = f"Publish dataset {json_id} from {dataset_path}? [y/N]: "
+                try:
+                    response = input(prompt)
+                except EOFError:
+                    response = ""
+                response_normalised = response.strip().lower()
+                if response_normalised not in {"y", "yes"}:
+                    print(f"[publish] skipped {json_id}")
+                    _append_publish_log(log_path, f"[publish] skipped {json_id}")
+                    continue
+            dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+            crud_client.update_process(dataset)
+            print(f"[publish] updated {json_id}")
+            _append_publish_log(log_path, f"[publish] updated {json_id}")
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point

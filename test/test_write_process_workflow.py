@@ -54,7 +54,7 @@ class StubRepository:
     def list_json_ids(self, user_id: str) -> list[str]:
         return list(self._ids)
 
-    def fetch_record(self, table: str, record_id: str):
+    def fetch_record(self, table: str, record_id: str, *, preferred_user_id: str | None = None):
         return json.loads(json.dumps(self._records.get(record_id)))
 
     def fetch_process_json(self, json_id: str) -> dict:

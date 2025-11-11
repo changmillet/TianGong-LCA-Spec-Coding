@@ -1,0 +1,48 @@
+general_information:
+  compliance_system: Environmental Footprint (EF) 3.1
+  ef_reference_package: EF reference package v3.1
+  review_completion_date: 待补充
+
+compliance_assessment:
+  ef_requirements:
+    status: Pending
+    comments: 请核对对照 EF 附录 I 的符合性。
+  allocation_rules:
+    status: Pending
+    comments: 记录 EF 要求的分配策略。
+  cff:
+    status: Pending
+    comments: 如适用，请确认循环足迹公式的实施。
+  lcia_results:
+    status: Pending
+    comments: 核对 LCIA 结果与 EF 参考包一致。
+  nomenclature:
+    status: Pending
+    comments: 需确保使用 EF 规范命名。
+  documentation:
+    status: Pending
+    comments: 需提供 EF 要求的文档证据。
+  ilcd_format:
+    status: Pending
+    comments: 文档需符合 ILCD 格式。
+  ilcd_validator:
+    status: Pending
+    comments: 记录 ILCD 验证结果。
+  data_quality:
+    status: Pending
+    comments: 记录数据质量评级（DQR）。
+  cut_off:
+    status: Pending
+    comments: 说明截断原则的应用。
+  additional_info:
+    status: Pending
+    comments: 其他需要披露的 EF 相关信息。
+
+references:
+  - European Commission. Product Environmental Footprint (PEF) Guide, Annex 8.
+
+declaration: 审查人声明，该数据集的 EF 合规性结论待补充。
+
+signature:
+  reviewers:
+    - EF Reviewer（签名） _______________
