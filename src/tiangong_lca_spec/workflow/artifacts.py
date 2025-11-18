@@ -8,16 +8,22 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 from uuid import uuid4
 
+from tiangong_lca_spec.core.constants import (
+    ILCD_FORMAT_SOURCE_UUID,
+    ILCD_FORMAT_SOURCE_VERSION,
+    build_dataset_format_reference,
+)
 from tiangong_lca_spec.core.logging import get_logger
 from tiangong_lca_spec.core.models import FlowCandidate, ProcessDataset
-from tiangong_lca_spec.process_extraction.merge import determine_functional_unit, merge_results
+from tiangong_lca_spec.core.uris import build_local_dataset_uri, build_portal_uri
+from tiangong_lca_spec.process_extraction.merge import merge_results
+from tiangong_lca_spec.process_extraction.tidas_mapping import ILCD_ENTRY_LEVEL_REFERENCE_ID
 from tiangong_lca_spec.tidas_validation import TidasValidationService
 
-DEFAULT_FORMAT_SOURCE_UUID = "00000000-0000-0000-0000-0000000000f0"
-TIDAS_PORTAL_BASE = "https://lcdn.tiangong.earth"
+DEFAULT_FORMAT_SOURCE_UUID = ILCD_FORMAT_SOURCE_UUID
 SOURCE_CLASSIFICATIONS: dict[str, tuple[str, str]] = {
     "images": ("0", "Images"),
     "data set formats": ("1", "Data set formats"),
@@ -37,6 +43,36 @@ FLOW_HINT_FIELDS: tuple[str, ...] = (
     "source_or_pathway",
     "usage_context",
 )
+
+DEFAULT_DATA_SET_VERSION = "01.01.000"
+
+
+def resolve_dataset_version(ilcd_dataset: Mapping[str, Any] | None) -> str:
+    """Extract the dataset version from an ILCD node, falling back to the default."""
+    if isinstance(ilcd_dataset, Mapping):
+        admin = ilcd_dataset.get("administrativeInformation")
+        if isinstance(admin, Mapping):
+            publication = admin.get("publicationAndOwnership")
+            if isinstance(publication, Mapping):
+                version = publication.get("common:dataSetVersion")
+                if isinstance(version, str):
+                    version = version.strip()
+                    if version:
+                        return version
+    return DEFAULT_DATA_SET_VERSION
+
+
+def build_export_filename(uuid_value: str, dataset_version: str) -> str:
+    """Return the canonical export filename <uuid>_<version>.json."""
+    safe_uuid = (uuid_value or "").strip()
+    if not safe_uuid:
+        raise ValueError("UUID required to build export filename.")
+    version = (dataset_version or "").strip() or DEFAULT_DATA_SET_VERSION
+    safe_version = re.sub(r"[^0-9A-Za-z._-]", "_", version)
+    if not safe_version:
+        safe_version = DEFAULT_DATA_SET_VERSION
+    return f"{safe_uuid}_{safe_version}.json"
+
 
 CJK_CHAR_PATTERN = re.compile(r"[\u2e80-\u2eff\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ua000-\ua4cf\uac00-\ud7af\uff00-\uffef]+")
 CHINESE_PUNCT_REPLACEMENTS: dict[str, str] = {
@@ -157,7 +193,9 @@ def generate_artifacts(
         uuid_value = ilcd_dataset.get("processInformation", {}).get("dataSetInformation", {}).get("common:UUID")
         if not uuid_value:
             raise ValueError("Process dataset missing common:UUID.")
-        process_path = artifact_root / "processes" / f"{uuid_value}.json"
+        dataset_version = resolve_dataset_version(ilcd_dataset)
+        process_filename = build_export_filename(uuid_value, dataset_version)
+        process_path = artifact_root / "processes" / process_filename
         _dump_json({"processDataSet": ilcd_dataset}, process_path)
 
         source_references |= _collect_source_references(ilcd_dataset)
@@ -174,21 +212,37 @@ def generate_artifacts(
         if not flow_dataset:
             continue
         uuid_value, dataset = flow_dataset
-        flow_path = artifact_root / "flows" / f"{uuid_value}.json"
+        flow_ilcd = dataset.get("flowDataSet", {})
+        dataset_version = resolve_dataset_version(flow_ilcd)
+        flow_filename = build_export_filename(uuid_value, dataset_version)
+        flow_path = artifact_root / "flows" / flow_filename
         _dump_json(dataset, flow_path)
         flow_count += 1
 
     written_sources = 0
+    format_uuid_lower = (format_source_uuid or "").strip().lower()
+    compliance_uuid_lower = (ILCD_ENTRY_LEVEL_REFERENCE_ID or "").strip().lower()
     for uuid_value, reference in source_references.items():
-        source_path = artifact_root / "sources" / f"{uuid_value}.json"
-        include_format = not (primary_source_uuid and uuid_value == primary_source_uuid)
+        candidate_uuid = (uuid_value or "").strip()
+        if not candidate_uuid:
+            continue
+        candidate_lower = candidate_uuid.lower()
+        if candidate_lower == format_uuid_lower:
+            continue
+        if compliance_uuid_lower and candidate_lower == compliance_uuid_lower:
+            continue
+        include_format = not (primary_source_uuid and candidate_uuid == primary_source_uuid)
         stub = _build_source_stub(
-            uuid_value,
+            candidate_uuid,
             reference,
             timestamp,
             format_source_uuid,
             include_format_reference=include_format,
         )
+        source_ilcd = stub.get("sourceDataSet", {})
+        dataset_version = resolve_dataset_version(source_ilcd)
+        source_filename = build_export_filename(candidate_uuid, dataset_version)
+        source_path = artifact_root / "sources" / source_filename
         _dump_json(stub, source_path)
         written_sources += 1
 
@@ -261,13 +315,20 @@ def _language_entry(text: str, lang: str = "en") -> dict[str, str]:
 
 
 def _dataset_format_reference() -> dict[str, Any]:
-    return {
-        "@refObjectId": "a97a0155-0234-4b87-b4ce-a45da52f2a40",
-        "@type": "source data set",
-        "@uri": "../sources/a97a0155-0234-4b87-b4ce-a45da52f2a40.xml",
-        "@version": "03.00.003",
-        "common:shortDescription": _language_entry("ILCD format", "en"),
-    }
+    return build_dataset_format_reference()
+
+
+def _format_reference_block(format_source_uuid: str) -> dict[str, Any]:
+    canonical_uuid = (format_source_uuid or "").strip()
+    if canonical_uuid and canonical_uuid != ILCD_FORMAT_SOURCE_UUID:
+        return {
+            "@type": "source data set",
+            "@refObjectId": canonical_uuid,
+            "@uri": build_local_dataset_uri("source", canonical_uuid, ILCD_FORMAT_SOURCE_VERSION),
+            "@version": ILCD_FORMAT_SOURCE_VERSION,
+            "common:shortDescription": _language_entry("ILCD format"),
+        }
+    return build_dataset_format_reference()
 
 
 def _unique_join(entries: Iterable[str]) -> str:
@@ -466,9 +527,38 @@ def _normalize_short_description_text(text: str) -> str:
     return normalized.strip(" ;,")
 
 
+def _localize_reference_uri(node: dict[str, Any]) -> None:
+    if not isinstance(node, dict):
+        return
+    uuid_value = str(node.get("@refObjectId") or "").strip()
+    if not uuid_value:
+        return
+    version = str(node.get("@version") or "").strip() or DEFAULT_DATA_SET_VERSION
+    ref_type = str(node.get("@type") or "").strip().lower()
+    uri_text = str(node.get("@uri") or "")
+
+    dataset_kind: str | None = None
+    if ref_type in {"flow data set", "flow"}:
+        dataset_kind = "flow"
+    elif ref_type in {"source data set", "source"}:
+        dataset_kind = "source"
+    elif ref_type in {"process data set", "process"}:
+        dataset_kind = "process"
+    elif "showproductflow" in uri_text.lower():
+        dataset_kind = "flow"
+    elif "showsource" in uri_text.lower():
+        dataset_kind = "source"
+    elif "showprocess" in uri_text.lower():
+        dataset_kind = "process"
+
+    if dataset_kind:
+        node["@uri"] = build_local_dataset_uri(dataset_kind, uuid_value, version)
+
+
 def _sanitize_reference_node(node: dict[str, Any]) -> None:
     if not isinstance(node, dict):
         return
+    _localize_reference_uri(node)
     short_desc = node.get("common:shortDescription")
     if isinstance(short_desc, dict):
         text = _extract_text(short_desc)
@@ -605,9 +695,7 @@ def _merge_intended_applications(container: dict[str, Any]) -> None:
     preferred_order = [lang for lang in order if lang == "en"]
     if preferred_order:
         order = preferred_order
-    container[key] = [
-        {"@xml:lang": lang, "#text": "; ".join(merged[lang])} for lang in order if merged.get(lang)
-    ]
+    container[key] = [{"@xml:lang": lang, "#text": "; ".join(merged[lang])} for lang in order if merged.get(lang)]
 
 
 def _sanitize_process_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
@@ -645,20 +733,17 @@ def _sanitize_process_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
                 validation["review"] = {"@type": "Not reviewed"}
         else:
             modelling["validation"] = {"review": {"@type": "Not reviewed"}}
+        _localize_compliance_references(modelling.get("complianceDeclarations"))
 
     exchanges_container = dataset.get("exchanges")
     if isinstance(exchanges_container, dict):
         exchanges = exchanges_container.get("exchange")
         if isinstance(exchanges, list):
-            exchanges_container["exchange"] = [
-                _sanitize_exchange_language(item) for item in exchanges if isinstance(item, dict)
-            ]
+            exchanges_container["exchange"] = [_sanitize_exchange_language(item) for item in exchanges if isinstance(item, dict)]
         elif isinstance(exchanges, dict):
             exchanges_container["exchange"] = [_sanitize_exchange_language(exchanges)]
     elif isinstance(exchanges_container, list):
-        dataset["exchanges"] = [
-            _sanitize_exchange_language(item) for item in exchanges_container if isinstance(item, dict)
-        ]
+        dataset["exchanges"] = [_sanitize_exchange_language(item) for item in exchanges_container if isinstance(item, dict)]
 
     admin = dataset.get("administrativeInformation") or dataset.get("administrative_information")
     if isinstance(admin, dict):
@@ -671,6 +756,25 @@ def _sanitize_process_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
             data_entry["common:referenceToDataSetFormat"] = _dataset_format_reference()
 
     return dataset
+
+
+def _localize_compliance_references(container: Any) -> None:
+    if not isinstance(container, dict):
+        return
+    reference = container.get("common:referenceToComplianceSystem")
+    if isinstance(reference, dict):
+        _localize_reference_uri(reference)
+    compliance_entries = container.get("compliance")
+    if isinstance(compliance_entries, list):
+        for entry in compliance_entries:
+            if isinstance(entry, dict):
+                ref = entry.get("common:referenceToComplianceSystem")
+                if isinstance(ref, dict):
+                    _localize_reference_uri(ref)
+    elif isinstance(compliance_entries, dict):
+        ref = compliance_entries.get("common:referenceToComplianceSystem")
+        if isinstance(ref, dict):
+            _localize_reference_uri(ref)
 
 
 def _sanitize_alignment_entry(entry: dict[str, Any]) -> dict[str, Any]:
@@ -696,9 +800,7 @@ def _sanitize_alignment_entry(entry: dict[str, Any]) -> dict[str, Any]:
         for name, exchanges in origin.items():
             sanitized_name = _sanitize_to_english(name) if isinstance(name, str) else name
             if isinstance(exchanges, list):
-                sanitized_origin[sanitized_name] = [
-                    _sanitize_exchange_language(exchange) for exchange in exchanges if isinstance(exchange, dict)
-                ]
+                sanitized_origin[sanitized_name] = [_sanitize_exchange_language(exchange) for exchange in exchanges if isinstance(exchange, dict)]
         sanitized["origin_exchanges"] = sanitized_origin
     return sanitized
 
@@ -892,17 +994,20 @@ def _flow_property_reference() -> dict[str, Any]:
 def flow_compliance_declarations() -> dict[str, Any]:
     """Return the default compliance declaration block for generated datasets.
 
-    The compliance system reference points to the public ILCD Data Network URI so we do
-    not need to ship an additional local source artifact.
+    The compliance system reference reuses the shared Tiangong ILCD Entry-level UUID.
+    Stage 3 does not export a local source stub for this reference; downstream systems
+    resolve it during publication using the stored UUID.
     """
 
+    compliance_uuid = ILCD_ENTRY_LEVEL_REFERENCE_ID
+    compliance_version = "20.20.002"
     return {
         "compliance": {
             "common:referenceToComplianceSystem": {
-                "@refObjectId": "d92a1a12-2545-49e2-a585-55c259997756",
+                "@refObjectId": compliance_uuid,
                 "@type": "source data set",
-                "@uri": ("https://lcdn.tiangong.earth/showSource.xhtml?" "uuid=d92a1a12-2545-49e2-a585-55c259997756&version=20.20.002"),
-                "@version": "20.20.002",
+                "@uri": build_local_dataset_uri("source", compliance_uuid, compliance_version),
+                "@version": compliance_version,
                 "common:shortDescription": _language_entry("ILCD Data Network - Entry-level"),
             },
             "common:approvalOfOverallCompliance": "Fully compliant",
@@ -915,11 +1020,13 @@ def _data_entry_reference() -> dict[str, Any]:
 
 
 def _ownership_reference() -> dict[str, Any]:
+    ref_object_id = "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+    version = "01.00.000"
     return {
-        "@refObjectId": "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8",
+        "@refObjectId": ref_object_id,
         "@type": "contact data set",
-        "@uri": "../contacts/f4b4c314-8c4c-4c83-968f-5b3c7724f6a8.xml",
-        "@version": "01.00.000",
+        "@uri": build_local_dataset_uri("contact data set", ref_object_id, version),
+        "@version": version,
         "common:shortDescription": [
             _language_entry("Tiangong LCA Data Working Group", "en"),
             _language_entry("天工LCA数据团队", "zh"),
@@ -928,14 +1035,7 @@ def _ownership_reference() -> dict[str, Any]:
 
 
 def _permanent_dataset_uri(dataset_kind: str, uuid_value: str, version: str) -> str:
-    suffix_map = {
-        "process": "showProcess.xhtml",
-        "flow": "showProductFlow.xhtml",
-        "source": "showSource.xhtml",
-    }
-    suffix = suffix_map.get(dataset_kind, "showDataSet.xhtml")
-    version_clean = version.strip() or "01.01.000"
-    return f"{TIDAS_PORTAL_BASE}/{suffix}?uuid={uuid_value}&version={version_clean}"
+    return build_portal_uri(dataset_kind, uuid_value, version)
 
 
 def _build_flow_dataset(
@@ -988,13 +1088,7 @@ def _build_flow_dataset(
     mix_text = _sanitize_to_english(mix_text)
 
     comment_entries = _normalise_language(exchange.get("generalComment") or f"Generated for {process_name}")
-    comment_entries = [
-        entry
-        for entry in comment_entries
-        if isinstance(entry, dict)
-        and (entry.get("@xml:lang") or "en").lower() == "en"
-        and _extract_text(entry.get("#text"))
-    ]
+    comment_entries = [entry for entry in comment_entries if isinstance(entry, dict) and (entry.get("@xml:lang") or "en").lower() == "en" and _extract_text(entry.get("#text"))]
     sanitized_comments: list[dict[str, str]] = []
     for entry in comment_entries:
         text = _sanitize_comment_text(entry.get("#text", ""))
@@ -1014,7 +1108,7 @@ def _build_flow_dataset(
         "mixAndLocationTypes": [_language_entry(mix_text, "en")],
     }
 
-    dataset_version = "01.01.000"
+    dataset_version = DEFAULT_DATA_SET_VERSION
     compliance_block = flow_compliance_declarations()
     modelling_section: dict[str, Any] = {
         "LCIMethod": {
@@ -1049,13 +1143,7 @@ def _build_flow_dataset(
             "administrativeInformation": {
                 "dataEntryBy": {
                     "common:timeStamp": timestamp,
-                    "common:referenceToDataSetFormat": {
-                        "@type": "source data set",
-                        "@refObjectId": format_source_uuid,
-                        "@uri": f"../sources/{format_source_uuid}.xml",
-                        "@version": "01.01.000",
-                        "common:shortDescription": _language_entry("ILCD format"),
-                    },
+                    "common:referenceToDataSetFormat": _format_reference_block(format_source_uuid),
                     "common:referenceToPersonOrEntityEnteringTheData": _data_entry_reference(),
                 },
                 "publicationAndOwnership": {
@@ -1136,7 +1224,7 @@ def _build_source_stub(
     short_desc = reference_node.get("common:shortDescription")
     description_entries = _normalise_language(short_desc or "Source reference")
     classification = _build_source_classification(reference_node, uuid_value, format_source_uuid)
-    dataset_version = "01.01.000"
+    dataset_version = DEFAULT_DATA_SET_VERSION
     dataset = {
         "sourceDataSet": {
             "@xmlns": "http://lca.jrc.it/ILCD/Source",
@@ -1163,13 +1251,9 @@ def _build_source_stub(
             },
         }
     }
-    dataset["sourceDataSet"]["administrativeInformation"]["dataEntryBy"]["common:referenceToDataSetFormat"] = {
-        "@type": "source data set",
-        "@refObjectId": format_source_uuid,
-        "@uri": f"../sources/{format_source_uuid}.xml",
-        "@version": "03.00.003",
-        "common:shortDescription": _language_entry("ILCD format"),
-    }
+    # Always attach the dataset-format reference so downstream validators receive
+    # a complete administrative block, regardless of whether the stub was auto-created.
+    dataset["sourceDataSet"]["administrativeInformation"]["dataEntryBy"]["common:referenceToDataSetFormat"] = _format_reference_block(format_source_uuid)
     dataset["sourceDataSet"]["administrativeInformation"]["dataEntryBy"]["common:referenceToPersonOrEntityEnteringTheData"] = _data_entry_reference()
     return dataset
 
@@ -1180,11 +1264,12 @@ def _ensure_directories(root: Path) -> None:
 
 
 def _build_source_reference(uuid_value: str, title: str) -> dict[str, Any]:
+    dataset_version = DEFAULT_DATA_SET_VERSION
     return {
         "@type": "source data set",
         "@refObjectId": uuid_value,
-        "@uri": f"../sources/{uuid_value}.xml",
-        "@version": "01.01.000",
+        "@uri": build_local_dataset_uri("source", uuid_value, dataset_version),
+        "@version": dataset_version,
         "common:shortDescription": [_language_entry(title)],
     }
 
