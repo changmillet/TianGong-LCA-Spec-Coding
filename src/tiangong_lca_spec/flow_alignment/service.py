@@ -9,11 +9,11 @@ from uuid import uuid4
 
 from tiangong_lca_spec.core.config import Settings, get_settings
 from tiangong_lca_spec.core.exceptions import FlowAlignmentError, FlowSearchError
+from tiangong_lca_spec.core.llm import LanguageModelProtocol
 from tiangong_lca_spec.core.logging import get_logger
 from tiangong_lca_spec.core.models import FlowCandidate, FlowQuery, UnmatchedFlow
 from tiangong_lca_spec.flow_alignment.selector import (
     CandidateSelector,
-    LanguageModelProtocol,
     LLMCandidateSelector,
     SelectorDecision,
     SimilarityCandidateSelector,

@@ -4,7 +4,8 @@ You will receive JSON describing an inventory `exchange`, its parent `dataset`, 
 - `raw_material`: feedstock, construction material, reagents, or other inputs physically embodied in the product;
 - `energy`: electricity, steam, fuels, gases used primarily for energy supply;
 - `auxiliary`: utilities, cooling media, maintenance supplies, catalysts, packaging, transport/services, etc.;
-- `product_output`: targeted product or saleable by-product delivered to downstream systems (`exchangeDirection == output` and flow describes a product/service);
+- `product_output`: targeted main product（通常是 process reference flow）或唯一的主要输出；
+- `by_product`: secondary outputs / 可售副产品，与主产品相比 allocation 系数或产量显著更低；
 - `waste`: wastes or emissions (solid residues, tailings, wastewater, exhaust gases, flue dust, etc.);
 - `unknown`: insufficient evidence to decide—explain why.
 
@@ -34,11 +35,11 @@ All fields may appear in either English or Chinese; consider both.
 ## Task
 1. Interpret the dataset context to understand process purpose/intended applications.
 2. Review the exchange direction, unit, and comments together with the flow metadata.
-3. Decide the most appropriate class label from `raw_material | energy | auxiliary | product_output | waste | unknown`.
+3. Decide the most appropriate class label from `raw_material | energy | auxiliary | product_output | by_product | waste | unknown`.
 4. Return strict JSON:
 ```json
 {
-  "class_label": "raw_material | energy | auxiliary | product_output | waste | unknown",
+  "class_label": "raw_material | energy | auxiliary | product_output | by_product | waste | unknown",
   "confidence": 0.0-1.0,
   "rationale": "Short justification referencing key evidence"
 }

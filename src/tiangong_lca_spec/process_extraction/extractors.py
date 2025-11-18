@@ -4,19 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cache
-from typing import Any, Protocol
+from typing import Any
 
+from tiangong_lca_spec.core.llm import LanguageModelProtocol
 from tiangong_lca_spec.core.json_utils import parse_json_response
 from tiangong_lca_spec.core.logging import get_logger
 from tiangong_lca_spec.tidas import FieldSummary, get_schema_repository
 
 LOGGER = get_logger(__name__)
-
-
-class LanguageModelProtocol(Protocol):
-    """Minimal protocol required from language models used in the pipeline."""
-
-    def invoke(self, input_data: dict[str, Any]) -> Any: ...
 
 
 def _truncate(text: str, limit: int = 160) -> str:

@@ -30,6 +30,12 @@
 Dataset Review 在 Stage 3 之后运行，流程拆成 Preparation、Validation 轨、内容 Review 轨，最终合并输出。
 
 ### 0. Preparation
+0. **“重新起跑”固定流程**  
+   - **确认 run_id**：明确本轮重算的 run（例如 `f697c94d`），并记录在 issue/commit 描述中，避免误删其它 run 的产物。  
+   - **备份必要文件**：若 `artifacts/<run_id>/analysis`、`exports` 或 `review/` 中有需要保留的 JSON/Excel/日志，将内容复制到 `notes/` 或单独分支。  
+   - **清理旧 artifacts**：仅删除目标 run 相关目录，如 `rm -rf artifacts/<run_id>/{analysis,cache,exports,review}`；全局缓存（`artifacts/cache`、`artifacts/lci_demo`）保留以便回归对比。  
+   - **重新执行 Stage/CLI**：按 Stage1→Stage4 以及 `uv run python -m tiangong_lca_spec.lci_analysis.upstream.cli …` 顺序重算，新的产物会在空目录下生成。  
+   - **写入记录**：在 `review_manifest.json` 或 run README 中注明“已执行 clean restart”，并标记删除/重算的范围，方便 QA 追溯。
 1. **解析 run 上下文**  
    - 使用 `_workflow_common.resolve_run_id()` 或读取 `artifacts/latest_run_id` 确定当前 Stage 产物；若 Stage 3 尚未执行，则调用 `scripts/stage3_align_flows.py` 产生 `process_datasets.json` 与 exports。
 2. **加载 Stage 产物**  
@@ -109,7 +115,8 @@ src/tiangong_lca_spec/review/
 - `checks/schema_guard.py` 复用 `tiangong_lca_spec.tidas_validation.TidasValidationService`，`checks/balances.py` 复用 `test/think_idea/lci_analysis_capability.md` 中的分析器。
 - `reporters` 输出对应到文档所述的 `validation_summary.log`、`review_findings.json`、`action_items.md` 等文件。
 
-## QA 与指标
+## 审核内容或指标：
+- **输入输出（exchange）完整性和一致性**：即包含原料（资源）、能源消耗、产品（副产品）、污染物、废弃物、单位/量纲一致性、系统边界覆盖度。
 - **Schema 完整率**：`processDataSet` 关键模块非空率 ≥ 95%，单位/ID 校验通过率 ≥ 98%；低于阈值直接阻断 Stage 4。  
 - **TIDAS 稳定度**：`tidas-validate` error 数量 / dataset ≤ 5%；CLI 版本必须与 `pyproject.toml` 中 `tidas-tools` 对齐，变更后 24h 内完成升级。  
 - **证据覆盖率**：≥ 85% 的重点字段（功能单位、地理/时间、LCI amount）有 chunk 或 Stage 1 清洗文本作佐证，LLM 需输出匹配或修订建议。  

@@ -1,0 +1,1994 @@
+{
+  "processDataSet": {
+    "@xmlns:common": "http://lca.jrc.it/ILCD/Common",
+    "@xmlns": "http://lca.jrc.it/ILCD/Process",
+    "@xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+    "@version": "1.1",
+    "@locations": "../ILCDLocations.xml",
+    "@xsi:schemaLocation": "http://lca.jrc.it/ILCD/Process ../../schemas/ILCD_ProcessDataSet.xsd",
+    "processInformation": {
+      "dataSetInformation": {
+        "common:UUID": "9b0cbccc-e26f-4949-9daa-dea78df56c0c",
+        "name": {
+          "baseName": [
+            {
+              "@xml:lang": "zh",
+              "#text": "交流电生产"
+            },
+            {
+              "@xml:lang": "en",
+              "#text": "alternating current production"
+            }
+          ],
+          "treatmentStandardsRoutes": [
+            {
+              "@xml:lang": "zh",
+              "#text": "风力发电"
+            },
+            {
+              "@xml:lang": "en",
+              "#text": "wind power"
+            }
+          ],
+          "mixAndLocationTypes": [
+            {
+              "@xml:lang": "zh",
+              "#text": "技术组合"
+            },
+            {
+              "@xml:lang": "en",
+              "#text": "technology mix"
+            }
+          ],
+          "functionalUnitFlowProperties": [
+            {
+              "@xml:lang": "zh",
+              "#text": "35-330kV"
+            },
+            {
+              "@xml:lang": "en",
+              "#text": "35-330kV"
+            }
+          ]
+        },
+        "classificationInformation": {
+          "common:classification": {
+            "common:class": [
+              {
+                "@level": "0",
+                "@classId": "D",
+                "#text": "Electricity, gas, steam and air conditioning supply"
+              },
+              {
+                "@level": "1",
+                "@classId": "35",
+                "#text": "Electricity, gas, steam and air conditioning supply"
+              },
+              {
+                "@level": "2",
+                "@classId": "351",
+                "#text": "Electric power generation, transmission and distribution activities"
+              },
+              {
+                "@level": "3",
+                "@classId": "3512",
+                "#text": "Electric power generation activities from renewable sources"
+              }
+            ]
+          }
+        },
+        "common:generalComment": [
+          {
+            "@xml:lang": "en",
+            "#text": "Describes the average electricity flow from wind power obtained by weighting different MW-class wind turbine installed capacity shares in China for the year 2024."
+          },
+          {
+            "@xml:lang": "zh",
+            "#text": "描述基于中国 2024 年不同兆瓦级风电机组装机容量占比进行加权平均后得到的风力发电平均电力流。"
+          }
+        ]
+      },
+      "quantitativeReference": {
+        "@type": "Reference flow(s)",
+        "referenceToReferenceFlow": "1"
+      },
+      "time": {
+        "common:referenceYear": "2024"
+      },
+      "geography": {
+        "locationOfOperationSupplyOrProduction": {
+          "@location": "CN"
+        }
+      },
+      "technology": {
+        "technologyDescriptionAndIncludedProcesses": [
+          {
+            "@xml:lang": "en",
+            "#text": "This model is a calculation model that synthesizes the LCA results of different turbine types using the installed capacity weighting method."
+          },
+          {
+            "@xml:lang": "zh",
+            "#text": "该模型是一个计算模型，通过装机容量加权法合成不同机型的LCA结果，背景系统为所有被加权的风机LCA数据。"
+          }
+        ]
+      },
+      "mathematicalRelations": {
+        "variableParameter": {}
+      }
+    },
+    "modellingAndValidation": {
+      "LCIMethodAndAllocation": {
+        "typeOfDataSet": "Partly terminated system"
+      },
+      "dataSourcesTreatmentAndRepresentativeness": {
+        "dataCutOffAndCompletenessPrinciples": [
+          {
+            "@xml:lang": "en",
+            "#text": "本清单遵循了既定的切断规则。在完整性方面，本数据集已包含所有已知的、对系统功能有显著贡献的物质流、能量流和排放流。"
+          },
+          {
+            "@xml:lang": "zh",
+            "#text": "This inventory follows established cut-off rules. Regarding completeness, this dataset includes all known elementary flows, energy flows, and emissions that significantly contribute to the system's function."
+          }
+        ],
+        "referenceToDataSource": {
+          "@type": "source data set",
+          "@refObjectId": "4f34ddea-fd9f-4bb4-bdd7-97826621958f",
+          "@version": "01.01.000",
+          "@uri": "../sources/4f34ddea-fd9f-4bb4-bdd7-97826621958f.xml",
+          "common:shortDescription": [
+            {
+              "@xml:lang": "en",
+              "#text": "\"2024 China Wind Power Installation Capacity Statistical Bulletin\" [J]. Wind Energy, 2025, (03): 48-63."
+            },
+            {
+              "@xml:lang": "zh",
+              "#text": "2024年中国风电吊装容量统计简报[J].风能,2025,(03):48-63."
+            }
+          ]
+        }
+      },
+      "completeness": {
+        "completenessElementaryFlows": {}
+      }
+    },
+    "administrativeInformation": {
+      "common:commissionerAndGoal": {
+        "common:referenceToCommissioner": {
+          "@refObjectId": "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8",
+          "@type": "contact data set",
+          "@uri": "../contacts/f4b4c314-8c4c-4c83-968f-5b3c7724f6a8.xml",
+          "@version": "01.00.000",
+          "common:shortDescription": [
+            {
+              "@xml:lang": "en",
+              "#text": "Tiangong LCA Data Working Group"
+            },
+            {
+              "@xml:lang": "zh",
+              "#text": "天工LCA数据团队"
+            }
+          ]
+        },
+        "common:intendedApplications": [
+          {
+            "@xml:lang": "en",
+            "#text": "Intended as an average electricity flow with regional and temporal representativeness, for macro-level LCA studies or power system modeling requiring averaged wind power environmental impacts."
+          },
+          {
+            "@xml:lang": "zh",
+            "#text": "作为一个具有地区和时间代表性的平均电力流，用于宏观LCA研究或需要平均风电环境影响的电力系统建模。"
+          }
+        ]
+      },
+      "dataGenerator": {
+        "common:referenceToPersonOrEntityGeneratingTheDataSet": {
+          "@refObjectId": "6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb",
+          "@type": "contact data set",
+          "@uri": "../contacts/6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb.xml",
+          "@version": "01.00.005",
+          "common:shortDescription": [
+            {
+              "@xml:lang": "zh",
+              "#text": "王子祺"
+            },
+            {
+              "@xml:lang": "en",
+              "#text": "Wang, Ziqi"
+            }
+          ]
+        }
+      },
+      "dataEntryBy": {
+        "common:timeStamp": "2025-05-01T10:59:48+08:00",
+        "common:referenceToDataSetFormat": {
+          "@refObjectId": "a97a0155-0234-4b87-b4ce-a45da52f2a40",
+          "@type": "source data set",
+          "@uri": "../sources/a97a0155-0234-4b87-b4ce-a45da52f2a40.xml",
+          "@version": "03.00.003",
+          "common:shortDescription": [
+            {
+              "@xml:lang": "en",
+              "#text": "ILCD format"
+            },
+            {
+              "@xml:lang": "zh",
+              "#text": "ILCD 数据格式"
+            }
+          ]
+        },
+        "common:referenceToConvertedOriginalDataSetFrom": {},
+        "common:referenceToPersonOrEntityEnteringTheData": {
+          "@refObjectId": "6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb",
+          "@type": "contact data set",
+          "@uri": "../contacts/6b03ca60-640c-4c0a-b4a8-07ba8cae3fcb.xml",
+          "@version": "01.00.005",
+          "common:shortDescription": [
+            {
+              "@xml:lang": "zh",
+              "#text": "王子祺"
+            },
+            {
+              "@xml:lang": "en",
+              "#text": "Wang, Ziqi"
+            }
+          ]
+        },
+        "common:referenceToDataSetUseApproval": {}
+      },
+      "publicationAndOwnership": {
+        "common:dataSetVersion": "01.01.000",
+        "common:permanentDataSetURI": "https://lcdn.tiangong.earth/datasetdetail/process.xhtml?uuid=9b0cbccc-e26f-4949-9daa-dea78df56c0c&version=01.01.000",
+        "common:referenceToOwnershipOfDataSet": {
+          "@refObjectId": "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8",
+          "@type": "contact data set",
+          "@uri": "../contacts/f4b4c314-8c4c-4c83-968f-5b3c7724f6a8.xml",
+          "@version": "01.00.000",
+          "common:shortDescription": [
+            {
+              "@xml:lang": "en",
+              "#text": "Tiangong LCA Data Working Group"
+            },
+            {
+              "@xml:lang": "zh",
+              "#text": "天工LCA数据团队"
+            }
+          ]
+        },
+        "common:copyright": "No",
+        "common:licenseType": "Free of charge for all users and uses"
+      }
+    },
+    "exchanges": {
+      "exchange": [
+        {
+          "@dataSetInternalID": "1",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "2a297e9f-2c81-4273-9a52-89eaa3f56693",
+            "@uri": "../flows/2a297e9f-2c81-4273-9a52-89eaa3f56693.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "zh",
+                "#text": "交流电; 风力发电; 技术组合; 35-330kV"
+              },
+              {
+                "@xml:lang": "en",
+                "#text": "Alternating current; wind power; technology mix; 35-330kV"
+              }
+            ]
+          },
+          "exchangeDirection": "Output",
+          "meanAmount": 3.6,
+          "resultingAmount": 3.6,
+          "allocations": {
+            "allocation": {
+              "@allocatedFraction": "100%"
+            }
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": [
+            {
+              "@xml:lang": "en",
+              "#text": "[{'text': '能量', 'type': 'text'}]"
+            },
+            {
+              "@xml:lang": "zh",
+              "#text": "[{'text': '3.6', 'type': 'text'}]"
+            }
+          ]
+        },
+        {
+          "@dataSetInternalID": "2",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "dcaa554e-950f-4e84-8e78-5f239449d348",
+            "@uri": "../flows/dcaa554e-950f-4e84-8e78-5f239449d348.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "zh",
+                "#text": "风力发电场; 陆上; ＜50 MW"
+              },
+              {
+                "@xml:lang": "en",
+                "#text": "wind power plant; onshore; ＜50 MW"
+              }
+            ]
+          },
+          "exchangeDirection": "Output",
+          "meanAmount": 2.1193838553628482e-9,
+          "resultingAmount": 2.1193838553628482e-9,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "3",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "dab98d11-c76c-4d40-bac9-a3d082f1fb36",
+            "@uri": "../flows/dab98d11-c76c-4d40-bac9-a3d082f1fb36.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "glass fibre reinforced polymer"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "玻璃纤维增强聚合物"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0001562271745409725,
+          "resultingAmount": 0.0001562271745409725,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "4",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "d7de8999-a129-4f8b-8d6e-8856d87c470c",
+            "@uri": "../flows/d7de8999-a129-4f8b-8d6e-8856d87c470c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Aluminium Profile"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铝型材"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000014091625418648295,
+          "resultingAmount": 0.000014091625418648295,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "5",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "b5e4fcbb-ad3f-4511-b007-67131b98866a",
+            "@uri": "../flows/b5e4fcbb-ad3f-4511-b007-67131b98866a.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Steel"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "钢材（含板材、构件等）、铝材（含板材、构件等）、铝合金（含板材、构件等）、铁材、其它金属材料"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.003970925218033011,
+          "resultingAmount": 0.003970925218033011,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "6",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "99715c69-4245-44ff-a438-0e0d68377386",
+            "@uri": "../flows/99715c69-4245-44ff-a438-0e0d68377386.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "copper strip; heat treatment, drawing and forming; production mix, at plant; diameter 5~19 mm"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铜盘条; 热处理、拉拔成型; 生产混合，在工厂; 直径在5-19毫米"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00012066660392657662,
+          "resultingAmount": 0.00012066660392657662,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "7",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "7970bf7f-eebc-43cc-b5d8-4775516b3519",
+            "@uri": "../flows/7970bf7f-eebc-43cc-b5d8-4775516b3519.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Cast Iron"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铸铁"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00010159047912755903,
+          "resultingAmount": 0.00010159047912755903,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "8",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "3eaea622-5e99-4d29-aae9-50cfaf77a3b8",
+            "@uri": "../flows/3eaea622-5e99-4d29-aae9-50cfaf77a3b8.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Cast-In-Place Concrete; Mixing treatment; At the construction site"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "现浇混凝土; 搅拌处理; 在工地"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.007960277516739145,
+          "resultingAmount": 0.007960277516739145,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "9",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "f88be752-fa94-4d53-9f58-457e321f11e7",
+            "@uri": "../flows/f88be752-fa94-4d53-9f58-457e321f11e7.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "zh",
+                "#text": "风力发电场; 海上; 在工厂; ≥150 MW"
+              },
+              {
+                "@xml:lang": "en",
+                "#text": "wind power plant; offshore; at plant; ≥150 MW"
+              }
+            ]
+          },
+          "exchangeDirection": "Output",
+          "meanAmount": 9.029518018173162e-13,
+          "resultingAmount": 9.029518018173162e-13,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "10",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "7ed38ce9-37f3-4957-89d2-153b63e127dd",
+            "@uri": "../flows/7ed38ce9-37f3-4957-89d2-153b63e127dd.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "lump ore; high temperature drying; production mix, at plant"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铁精矿，块矿; 高温烘干; 生产混合，在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0000021046661310645926,
+          "resultingAmount": 0.0000021046661310645926,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "11",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "172a3db9-6556-11dd-ad8b-0800200c9a66",
+            "@uri": "../flows/172a3db9-6556-11dd-ad8b-0800200c9a66.xml",
+            "@version": "03.00.004",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "sea water"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "海水"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00009363278457098385,
+          "resultingAmount": 0.00009363278457098385,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "12",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "f4f19250-c683-4ff0-9763-1498069df9de",
+            "@uri": "../flows/f4f19250-c683-4ff0-9763-1498069df9de.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Chromium steel; corrosion-resistant; production  mix; 10%-30% Cr"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铬钢; 耐腐蚀; 生产混合; 10%-30%铬"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000003141173383421686,
+          "resultingAmount": 0.000003141173383421686,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "13",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "817c3650-4fed-4ef2-b9b6-404a198834e6",
+            "@uri": "../flows/817c3650-4fed-4ef2-b9b6-404a198834e6.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Steel, low-alloyed; Continuous casting process; production mix, at plant"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "非合金钢锭; 连铸工艺; 生产混合，在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00002192324210704871,
+          "resultingAmount": 0.00002192324210704871,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "14",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "43050e3b-42be-465c-a021-17f606484151",
+            "@uri": "../flows/43050e3b-42be-465c-a021-17f606484151.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Hot rolled rebar steel; Rolling technology; Production mix, in the factory; Non-alloy steel (C≤0.25%), low alloy steel (C≤0.2%)"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "钢筋，钢制建筑材料; 热轧工艺; 生产混合，在工厂; 非合金钢（C≤0.25%），低合金钢（C≤0.2%）"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0000027518531469162,
+          "resultingAmount": 0.0000027518531469162,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "15",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "0286ac90-a513-4ed7-9f8e-c2df707e5dbb",
+            "@uri": "../flows/0286ac90-a513-4ed7-9f8e-c2df707e5dbb.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Magnet"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "磁铁"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 4.40296503506592e-7,
+          "resultingAmount": 4.40296503506592e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "16",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "734249ea-34e6-471b-a05a-f5b26b818167",
+            "@uri": "../flows/734249ea-34e6-471b-a05a-f5b26b818167.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Transformer"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "变压器"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.744439395826434e-11,
+          "resultingAmount": 1.744439395826434e-11,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": {
+            "#text": "原文献单位为质量：50.48t"
+          }
+        },
+        {
+          "@dataSetInternalID": "17",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "1ce0d026-923b-4339-a8ca-31e228475c75",
+            "@uri": "../flows/1ce0d026-923b-4339-a8ca-31e228475c75.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Polyethylene terephthalate"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "聚对苯二甲酸"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 4.3122541864829454e-7,
+          "resultingAmount": 4.3122541864829454e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "18",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "6207ccc7-11eb-4bcc-8652-bdc3659b2545",
+            "@uri": "../flows/6207ccc7-11eb-4bcc-8652-bdc3659b2545.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "capacitor; auxilliaries and energy use; consumption mix"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "电容器; 辅助设备和能源使用; 消费混合"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 4.3122541864829454e-7,
+          "resultingAmount": 4.3122541864829454e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "19",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "da76dc39-b533-4da0-b3cd-7b4d465d5f0a",
+            "@uri": "../flows/da76dc39-b533-4da0-b3cd-7b4d465d5f0a.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Copper Belt"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铜带材"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 2.1561270932414727e-7,
+          "resultingAmount": 2.1561270932414727e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "20",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "aec6f1a5-7b09-4704-870d-434d3ada0edd",
+            "@uri": "../flows/aec6f1a5-7b09-4704-870d-434d3ada0edd.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "lubricating oil; total synthesis process; production mix, at plant; PAO (poly alpha olefin)"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "润滑油; 全合成工艺; 生产混合，在工厂; PAO（聚α-烯烃）"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000003540402329994032,
+          "resultingAmount": 0.000003540402329994032,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "21",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "1ff32f1d-77ac-4a6f-b91c-67b08b13e55a",
+            "@uri": "../flows/1ff32f1d-77ac-4a6f-b91c-67b08b13e55a.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Polyethylene; raw material; 生产混合，在工厂"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "聚乙烯; 原材料; production mix, at plant"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 8.672706873262777e-7,
+          "resultingAmount": 8.672706873262777e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "22",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "44defed2-3dc7-4d59-b3bc-23dacf1b9140",
+            "@uri": "../flows/44defed2-3dc7-4d59-b3bc-23dacf1b9140.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Primary aluminium; ingot, High Purity, Bayer Process for Alumina Production, Hall-Héroult Electrolysis Process; Production mix, at plant; Aluminium≥99.7%"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "原铝; 铸锭, 高纯度,  拜耳法氧化铝生产, 霍尔-埃鲁法电解铝提取,; 生产混合, 在工厂; 铝≥99.7%"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.425363985935821e-7,
+          "resultingAmount": 1.425363985935821e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "23",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "063889a6-fcdf-48f8-a229-992a07bc2b0a",
+            "@uri": "../flows/063889a6-fcdf-48f8-a229-992a07bc2b0a.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Crude lead"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "粗铅"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 9.178526609730974e-7,
+          "resultingAmount": 9.178526609730974e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "24",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "e9ba8900-4c21-4a2f-89c7-018cf30a01ea",
+            "@uri": "../flows/e9ba8900-4c21-4a2f-89c7-018cf30a01ea.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Polyvinyl Chloride"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "聚氯乙烯"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 6.306148415912559e-8,
+          "resultingAmount": 6.306148415912559e-8,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "25",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "da2d966d-fe62-44dc-ba0f-b1cd7c7cf33e",
+            "@uri": "../flows/da2d966d-fe62-44dc-ba0f-b1cd7c7cf33e.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "copper wire"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铜线材"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0000012007179338857211,
+          "resultingAmount": 0.0000012007179338857211,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "26",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "1f4bc7a0-5cc5-4cc6-bb83-5b05a6653732",
+            "@uri": "../flows/1f4bc7a0-5cc5-4cc6-bb83-5b05a6653732.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Lead-antimony alloy"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铅锑合金"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 9.447088495518752e-7,
+          "resultingAmount": 9.447088495518752e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "27",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "936bdcb2-06b6-4ee9-8e7c-2f7762aba298",
+            "@uri": "../flows/936bdcb2-06b6-4ee9-8e7c-2f7762aba298.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Printing Writing Paper (Uncoated)"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "印刷书写纸（未涂布）、包装纸（未涂布）."
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.9991275476170934e-7,
+          "resultingAmount": 1.9991275476170934e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "28",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "54802cfb-bd58-4f85-9ebf-9e0616529c1c",
+            "@uri": "../flows/54802cfb-bd58-4f85-9ebf-9e0616529c1c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Polypropylene; Production of polypropylene; Production mix, in the factory"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "聚丙烯; 聚丙烯的生产; 生产混合，在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.885716074012569e-7,
+          "resultingAmount": 1.885716074012569e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "29",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "5f31060f-11d6-445a-bfbc-5ef409bcf367",
+            "@uri": "../flows/5f31060f-11d6-445a-bfbc-5ef409bcf367.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Furfural refined lubricating oil; Production of lubricating oil; Production mix, in the factory; Furfural refining"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "润滑油; 润滑油的生产; 生产混合，在工厂; 糠醛精制"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.5418663709860894e-7,
+          "resultingAmount": 1.5418663709860894e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "30",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "4e256aeb-9d90-4e11-9e58-4299c38c424b",
+            "@uri": "../flows/4e256aeb-9d90-4e11-9e58-4299c38c424b.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Asphalt"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "沥青"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 2.196685309194437e-8,
+          "resultingAmount": 2.196685309194437e-8,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "31",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "9d258d75-6792-4f1c-9856-81602ed8f816",
+            "@uri": "../flows/9d258d75-6792-4f1c-9856-81602ed8f816.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Diesel oil"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "柴油"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00004560174347390609,
+          "resultingAmount": 0.00004560174347390609,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "32",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "e6677cd5-b574-4e00-a3bd-c373ac796135",
+            "@uri": "../flows/e6677cd5-b574-4e00-a3bd-c373ac796135.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Gasoline"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "汽油"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 4.2700204399454934e-7,
+          "resultingAmount": 4.2700204399454934e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "33",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "50657322-939c-4829-a87b-47c093bfa6a7",
+            "@uri": "../flows/50657322-939c-4829-a87b-47c093bfa6a7.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "zh",
+                "#text": "交流电; 电力混合; 消费组合，到用户; ＜1kV"
+              },
+              {
+                "@xml:lang": "en",
+                "#text": "Alternating current; electricity mix; consumption mix; ＜1kV"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0012319905912144026,
+          "resultingAmount": 0.0012319905912144026,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "34",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "e2bab6ae-d42f-4fca-bab5-ae9c6692f105",
+            "@uri": "../flows/e2bab6ae-d42f-4fca-bab5-ae9c6692f105.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Epoxy resin"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "环氧树脂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00002170698675469949,
+          "resultingAmount": 0.00002170698675469949,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "35",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "3ac7e121-522f-4af2-b420-db441013f886",
+            "@uri": "../flows/3ac7e121-522f-4af2-b420-db441013f886.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Multi-Si ingot"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "多晶硅锭"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 5.176310492505353e-7,
+          "resultingAmount": 5.176310492505353e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "36",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "e9a40974-4404-4262-900f-550f84ced821",
+            "@uri": "../flows/e9a40974-4404-4262-900f-550f84ced821.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "aluminium Profile; rolling and drawing; production mix, at plant; single core 1.5mm ²"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铝线材; 压延、拉丝; 生产混合，在工厂; 单芯1.5mm²"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000028670137239634026,
+          "resultingAmount": 0.000028670137239634026,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "37",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "12515acc-030c-4be2-ad20-fae5c0b35cfb",
+            "@uri": "../flows/12515acc-030c-4be2-ad20-fae5c0b35cfb.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Fiber glass"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "玻璃纤维"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00023415202225355594,
+          "resultingAmount": 0.00023415202225355594,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "38",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "31e4182a-d3e2-4312-95ac-0f4a1e66cf6c",
+            "@uri": "../flows/31e4182a-d3e2-4312-95ac-0f4a1e66cf6c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Mono-Si wafer; used for photovoltaic panel production; at plant"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "单晶硅片; 用于光伏板生产; 在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000003853427816238011,
+          "resultingAmount": 0.000003853427816238011,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "39",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "3012b141-1a11-4d4c-ae8f-4995e9de6db5",
+            "@uri": "../flows/3012b141-1a11-4d4c-ae8f-4995e9de6db5.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Transport, freight train; Service mix, at rail logistics network"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "运输，货运列车; 服务混合，在铁路物流网络"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0000015582427033240377,
+          "resultingAmount": 0.0000015582427033240377,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "40",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "7fd5ee11-bcf8-47eb-83b4-778ed51eac29",
+            "@uri": "../flows/7fd5ee11-bcf8-47eb-83b4-778ed51eac29.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Heavy oil; Crude oil is processed through fractional distillation and cracking; In the oil refinery; 39.36-41.03MJ/kg"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "重油; 原油经过分馏和裂解加工; 在炼油厂; 39.36-41.03MJ/kg"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000001150829222021481,
+          "resultingAmount": 0.000001150829222021481,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "41",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "caf453d8-b363-45d9-a7ab-a60bbf4f727c",
+            "@uri": "../flows/caf453d8-b363-45d9-a7ab-a60bbf4f727c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Yttrium"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "稀土金属及合金"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 3.485486353434234e-7,
+          "resultingAmount": 3.485486353434234e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "42",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "aba73e7d-6fa9-4320-9e5c-62b018975000",
+            "@uri": "../flows/aba73e7d-6fa9-4320-9e5c-62b018975000.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Ferrosilicon"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "硅铁"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 8.077803679063561e-8,
+          "resultingAmount": 8.077803679063561e-8,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": {
+            "#text": "应为硅钢片，这里选择了最接近的流"
+          }
+        },
+        {
+          "@dataSetInternalID": "43",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "6017686d-e8e6-459d-92c2-39c41a05cb26",
+            "@uri": "../flows/6017686d-e8e6-459d-92c2-39c41a05cb26.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Aluminium Cable"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铝电缆"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000001117143061998152,
+          "resultingAmount": 0.000001117143061998152,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "44",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "08a91e70-3ddc-11dd-923d-0050c2490048",
+            "@uri": "../flows/08a91e70-3ddc-11dd-923d-0050c2490048.xml",
+            "@version": "03.00.004",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "carbon dioxide (fossil)"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "二氧化碳（化石源）"
+              }
+            ]
+          },
+          "exchangeDirection": "Output",
+          "meanAmount": 0.00010127719650076619,
+          "resultingAmount": 0.00010127719650076619,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": {
+            "#text": "根据燃料消耗量计算，排放因子来自IPCC 2006 Guidelines for National Greenhouse Gas Inventories（及其 2019 Refinement）"
+          }
+        },
+        {
+          "@dataSetInternalID": "45",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "73f1241c-e77d-4e9e-b290-e755a40acf81",
+            "@uri": "../flows/73f1241c-e77d-4e9e-b290-e755a40acf81.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Gravel Sand"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "砂砾"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.000004948084423834892,
+          "resultingAmount": 0.000004948084423834892,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "46",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "4f19ca0e-7b3b-11dd-ad8b-0800200c9a66",
+            "@uri": "../flows/4f19ca0e-7b3b-11dd-ad8b-0800200c9a66.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "natural gas in the gaseous state; Compressed processing, pipeline transportation, in compliance with national gas standards; Production mixing, at consumption"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "气态天然气; 压缩处理，经过管道运输到达消费者，符合国家燃气标准; 消费混合，在消费端"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.5014509998989116e-7,
+          "resultingAmount": 1.5014509998989116e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Calculated",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "47",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "653ca70d-49a6-4c62-ae9c-56b3c00b647c",
+            "@uri": "../flows/653ca70d-49a6-4c62-ae9c-56b3c00b647c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Transport, freight, lorry 16-32 metric ton, unregulated"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "运输，货运，货车，16-32 公吨，无管制"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.00006172473219784866,
+          "resultingAmount": 0.00006172473219784866,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "48",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "c5680f19-7c46-4197-bb78-23da7bf1c35d",
+            "@uri": "../flows/c5680f19-7c46-4197-bb78-23da7bf1c35d.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Rubber"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "橡胶"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 3.4412131145464306e-7,
+          "resultingAmount": 3.4412131145464306e-7,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "49",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "30cc5ca3-6198-4f82-8016-284f1b15d01b",
+            "@uri": "../flows/30cc5ca3-6198-4f82-8016-284f1b15d01b.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Copper sheet"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铜板材"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0000010226155721367699,
+          "resultingAmount": 0.0000010226155721367699,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "50",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "33cf9edf-84e6-41c7-8986-2983e91391d8",
+            "@uri": "../flows/33cf9edf-84e6-41c7-8986-2983e91391d8.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Ferrosilicon; production mix，at plant"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "硅铁; 生产混合，在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 0.0000020194509197658904,
+          "resultingAmount": 0.0000020194509197658904,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "51",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "e1d9ac24-3589-4d3f-91ce-7e717189b3f2",
+            "@uri": "../flows/e1d9ac24-3589-4d3f-91ce-7e717189b3f2.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Aluminium and aluminium alloy;  Hot Rolled, High Thermal Conductivity, Automotive Manufacturing, Electrolytic Aluminium Process; production Mixture, at plant"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铝和铝合金; 热轧, 高导热性, 汽车制造, 铝电解工艺; 生产混合, 在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 6.496616575927715e-8,
+          "resultingAmount": 6.496616575927715e-8,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "52",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "b8f96f18-f170-4ac4-a775-a6b69b27c016",
+            "@uri": "../flows/b8f96f18-f170-4ac4-a775-a6b69b27c016.xml",
+            "@version": "01.00.005",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Copper and copper alloys"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "铜及铜合金"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 8.67934225090872e-8,
+          "resultingAmount": 8.67934225090872e-8,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "53",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "8a1cacfb-0b44-404e-93e0-01a9b7a4403c",
+            "@uri": "../flows/8a1cacfb-0b44-404e-93e0-01a9b7a4403c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Nickel metal (＞99.9% Ni)"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "镍金属"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 1.7788354910278266e-11,
+          "resultingAmount": 1.7788354910278266e-11,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "54",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "d8cbeec3-56d9-4b41-a5f6-6a754958182c",
+            "@uri": "../flows/d8cbeec3-56d9-4b41-a5f6-6a754958182c.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Paint (Solvent-based)"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "涂料（溶剂型）"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 3.145187389933259e-10,
+          "resultingAmount": 3.145187389933259e-10,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": {
+            "#text": "原文为alkyd paint"
+          }
+        },
+        {
+          "@dataSetInternalID": "55",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "0a8faf13-9861-4805-bcee-a212c6dceb04",
+            "@uri": "../flows/0a8faf13-9861-4805-bcee-a212c6dceb04.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Paper Bag"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "纸袋纸、牛皮纸"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 5.929451636759422e-11,
+          "resultingAmount": 5.929451636759422e-11,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          }
+        },
+        {
+          "@dataSetInternalID": "56",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "0a818805-0d5d-442a-8ba5-9f54d2d5b533",
+            "@uri": "../flows/0a818805-0d5d-442a-8ba5-9f54d2d5b533.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Polypropylene carbonate"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "聚碳酸亚丙酯"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 2.964725818379711e-10,
+          "resultingAmount": 2.964725818379711e-10,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": {
+            "#text": "原文为 聚碳酸酯polycarbonate"
+          }
+        },
+        {
+          "@dataSetInternalID": "57",
+          "referenceToFlowDataSet": {
+            "@type": "flow data set",
+            "@refObjectId": "af987714-d2f8-4eac-8e74-3591677a18dc",
+            "@uri": "../flows/af987714-d2f8-4eac-8e74-3591677a18dc.xml",
+            "@version": "01.01.000",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Precious Metal Materials; Precious metals, precious metals smelting; In a factory"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "贵金属材料; 贵金属，贵金属冶炼; 在工厂"
+              }
+            ]
+          },
+          "exchangeDirection": "Input",
+          "meanAmount": 5.929451636759423e-12,
+          "resultingAmount": 5.929451636759423e-12,
+          "allocations": {
+            "allocation": {}
+          },
+          "dataDerivationTypeStatus": "Measured",
+          "referencesToDataSource": {
+            "referenceToDataSource": {}
+          },
+          "generalComment": {
+            "#text": "原文为silver"
+          }
+        }
+      ]
+    },
+    "LCIAResults": {
+      "LCIAResult": [
+        {
+          "key": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+          "meanAmount": "0.00010127719650076619",
+          "referenceToLCIAMethodDataSet": {
+            "@uri": "../lciamethods/6209b35f-9447-40b5-b68c-a1099e3674a0.xml",
+            "@type": "lCIA method data set",
+            "@version": "01.00.000",
+            "@refObjectId": "6209b35f-9447-40b5-b68c-a1099e3674a0",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Climate change"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "气候变化"
+              }
+            ]
+          }
+        },
+        {
+          "key": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+          "meanAmount": "0.00010127719650076619",
+          "referenceToLCIAMethodDataSet": {
+            "@uri": "../lciamethods/7fce5b3a-66b8-4ce1-91e8-a925aee1f186.xml",
+            "@type": "lCIA method data set",
+            "@version": "01.00.000",
+            "@refObjectId": "7fce5b3a-66b8-4ce1-91e8-a925aee1f186",
+            "common:shortDescription": [
+              {
+                "@xml:lang": "en",
+                "#text": "Climate change-Fossil"
+              },
+              {
+                "@xml:lang": "zh",
+                "#text": "气候变化-化石源"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

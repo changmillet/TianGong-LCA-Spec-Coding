@@ -7,17 +7,12 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import Any, Protocol, Sequence
 
+from tiangong_lca_spec.core.llm import LanguageModelProtocol
 from tiangong_lca_spec.core.json_utils import parse_json_response
 from tiangong_lca_spec.core.logging import get_logger
 from tiangong_lca_spec.core.models import FlowCandidate, FlowQuery
 
 LOGGER = get_logger(__name__)
-
-
-class LanguageModelProtocol(Protocol):
-    """Minimal protocol for language models used in candidate selection."""
-
-    def invoke(self, input_data: dict[str, Any]) -> Any: ...
 
 
 @dataclass(slots=True)

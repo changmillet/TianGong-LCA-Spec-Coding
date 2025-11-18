@@ -9,10 +9,10 @@ from typing import Any, TypedDict
 
 from tiangong_lca_spec.core.config import Settings, get_settings
 from tiangong_lca_spec.core.exceptions import ProcessExtractionError, SpecCodingError
+from tiangong_lca_spec.core.llm import LanguageModelProtocol
 from tiangong_lca_spec.core.logging import get_logger
 
 from .extractors import (
-    LanguageModelProtocol,
     LocationNormalizer,
     ParentProcessExtractor,
     ProcessClassifier,

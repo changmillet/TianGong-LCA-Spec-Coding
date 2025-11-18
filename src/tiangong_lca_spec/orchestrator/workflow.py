@@ -7,6 +7,7 @@ from typing import Any, TypedDict
 
 from tiangong_lca_spec.core.config import Settings, get_settings
 from tiangong_lca_spec.core.exceptions import SpecCodingError
+from tiangong_lca_spec.core.llm import LanguageModelProtocol
 from tiangong_lca_spec.core.logging import get_logger
 from tiangong_lca_spec.core.models import (
     FlowCandidate,
@@ -16,7 +17,6 @@ from tiangong_lca_spec.core.models import (
 )
 from tiangong_lca_spec.flow_alignment import FlowAlignmentService
 from tiangong_lca_spec.process_extraction import ProcessExtractionService, preprocess_paper
-from tiangong_lca_spec.process_extraction.extractors import LanguageModelProtocol
 from tiangong_lca_spec.process_extraction.merge import determine_functional_unit, merge_results
 from tiangong_lca_spec.tidas_validation import TidasValidationService
 
