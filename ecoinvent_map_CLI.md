@@ -1,0 +1,11 @@
+uv run python scripts/ecoinvent_compare_flows.py \
+  --enable-search --enable-process-fetch --retry-empty-matches \
+  --flow-usage-details artifacts/cache/run_full/flow_usage_details.jsonl \
+  --search-output artifacts/cache/run_full/flow_search_results.jsonl \
+  --process-cache artifacts/cache/run_full/tiangong_flow_process.jsonl \
+  --process-dataset-cache artifacts/cache/run_full/process_datasets \
+  --flow-dataset-cache artifacts/cache/run_full/flow_datasets \
+  --output artifacts/ecoinvent_flow_similarity.full.json \
+  --excel-output artifacts/flow_search_overview.xlsx \
+  --log-file artifacts/logs/ecoinvent_compare.log \
+  --show-progress

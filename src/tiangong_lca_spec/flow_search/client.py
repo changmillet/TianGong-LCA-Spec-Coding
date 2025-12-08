@@ -26,10 +26,12 @@ class FlowSearchClient:
         settings: Settings | None = None,
         *,
         mcp_client: MCPToolClient | None = None,
+        server_name: str | None = None,
+        tool_name: str | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._server_name = self._settings.flow_search_service_name
-        self._tool_name = getattr(self._settings, "flow_search_tool_name", "Search_Flows_Tool")
+        self._server_name = server_name or self._settings.flow_search_service_name
+        self._tool_name = tool_name or getattr(self._settings, "flow_search_tool_name", "Search_Flows_Tool")
         self._mcp = mcp_client or MCPToolClient(self._settings)
         self._timeout_seconds = self._resolve_timeout()
         self._max_attempts = max(1, self._settings.max_retries)
@@ -43,6 +45,7 @@ class FlowSearchClient:
             parts.append(f"exchange: {query.exchange_name}")
         if query.description:
             parts.append(f"description: {query.description}")
+        parts.append("typeOfDataSet: product flow")
         joined = " \n".join(parts)
         return {"query": joined or query.exchange_name}
 
@@ -265,6 +268,28 @@ def _first_text(value: Any) -> str | None:
     elif isinstance(value, str):
         return value
     return None
+
+
+def _collect_texts(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if isinstance(value, dict):
+        collected: list[str] = []
+        for key in ("#text", "text", "@value"):
+            text = value.get(key)
+            if isinstance(text, str) and text.strip():
+                collected.append(text.strip())
+        for child in value.values():
+            collected.extend(_collect_texts(child))
+        return [item for item in collected if item]
+    if isinstance(value, list):
+        collected: list[str] = []
+        for item in value:
+            collected.extend(_collect_texts(item))
+        return [item for item in collected if item]
+    return []
 
 
 def _extract_geography(raw_geo: Any) -> dict[str, Any] | None:

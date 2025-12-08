@@ -23,7 +23,7 @@ def name_similarity_score(query: FlowQuery, candidate: dict[str, Any]) -> float:
     ).ratio()
 
 
-def passes_similarity(query: FlowQuery, candidate: dict[str, Any], threshold: float = 0.65) -> bool:
+def passes_similarity(query: FlowQuery, candidate: dict[str, Any], threshold: float = 0.5) -> bool:
     score = name_similarity_score(query, candidate)
     if score >= threshold:
         return True

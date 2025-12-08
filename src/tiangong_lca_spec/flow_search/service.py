@@ -19,9 +19,20 @@ LOGGER = get_logger(__name__)
 class FlowSearchService:
     """High-level facade responsible for flow lookup and validation."""
 
-    def __init__(self, settings: Settings | None = None, *, client: FlowSearchClient | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        client: FlowSearchClient | None = None,
+        server_name: str | None = None,
+        tool_name: str | None = None,
+    ) -> None:
         self._settings = settings or get_settings()
-        self._client = client or FlowSearchClient(self._settings)
+        self._client = client or FlowSearchClient(
+            self._settings,
+            server_name=server_name,
+            tool_name=tool_name,
+        )
 
     def lookup(self, query: FlowQuery) -> tuple[list[FlowCandidate], list[UnmatchedFlow]]:
         LOGGER.info("flow_search.lookup", exchange=query.exchange_name, process=query.process_name)
@@ -66,21 +77,11 @@ class FlowSearchService:
         return [], filtered_out + [unmatched]
 
     def _normalize_candidates(self, query: FlowQuery, payload: Iterable[dict]) -> tuple[list[FlowCandidate], list[UnmatchedFlow]]:
-        candidates: list[FlowCandidate] = []
-        filtered: list[UnmatchedFlow] = []
-        for item in payload or []:
-            if not passes_similarity(query, item):
-                LOGGER.info("flow_search.filtered_out", base_name=item.get("base_name"))
-                filtered.append(
-                    UnmatchedFlow(
-                        base_name=item.get("base_name") or query.exchange_name,
-                        general_comment=item.get("general_comment"),
-                        process_name=query.process_name,
-                    )
-                )
-                continue
-            candidates.append(hydrate_candidate(item))
-        return candidates, filtered
+        items = [item for item in (payload or []) if isinstance(item, dict)]
+        candidates = [hydrate_candidate(item) for item in items]
+        if candidates:
+            return [candidates[0]], []
+        return [], []
 
     def close(self) -> None:
         self._client.close()
