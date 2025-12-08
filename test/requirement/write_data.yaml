@@ -1,0 +1,150 @@
+# 写入字段需求（模板化结构）
+#
+# 使用方式：
+# 1. `global_updates` 继续表示所有流程共享的字段（若无可保留为空列表）。
+# 2. `templates` 中定义可复用的字段/交换配置，每个模板可选地声明 `process_name`
+#    以便日志更易读；若省略则自动匹配当前绑定的流程。
+# 3. `process_bindings` 维护 JSON UUID 到模板名的对应关系，脚本会仅针对绑定的
+#    UUID 执行写入，且自动套用对应模板。
+# 4. 字段值规则与既有 YAML 一致：多语言字段使用 `zh`/`en`，引用字段填写 UUID。
+# 5. `ui_label` 仅支持在 `src/tiangong_lca_spec/process_update/updater.py` 的
+#    `FIELD_MAPPINGS` 中列出的中文标签（如“建模信息——使用的数据来源”、“管理信息——许可类型”等）。
+#    若不确定可用标签，可运行
+#    `uv run python scripts/list_supported_write_labels.py`
+#    直接查看可选择的ui_label后复制粘贴。
+
+global_updates: []
+
+templates:
+  process_1_updates:
+    fields:
+      - ui_label: "建模信息——数据切断和完整性原则"
+        value:
+          zh: "本清单遵循了既定的切断规则。在完整性方面，本数据集已包含所有已知的、对系统功能有显著贡献的物质流、能量流和排放流。"
+          en: "This inventory follows established cut-off rules. Regarding completeness, this dataset includes all known elementary flows, energy flows, and emissions that significantly contribute to the system's function."
+      - ui_label: "管理信息——数据集委托方"
+        value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+      - ui_label: "管理信息——数据集生成者/建模者"
+        value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+      - ui_label: "管理信息——数据录入人"
+        value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+      - ui_label: "管理信息——数据集拥有者"
+        value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+      - ui_label: "管理信息——数据集格式"
+        value: "a97a0155-0234-4b87-b4ce-a45da52f2a40"
+      - ui_label: "管理信息——版权？"
+        value: "否"
+      - ui_label: "管理信息——许可类型"
+        value: "对所有用户和适用类型免费"
+
+  process_2_updates:
+    process_name: "交流电生产; 火力发电"
+    fields:
+      - ui_label: "过程信息——混合和位置类型"
+        value:
+          zh: "技术组合"
+          en: "technology mix"
+      - ui_label: "过程信息——定量产品或过程属性"
+        value:
+          zh: "35-330kV"
+          en: "35-330kV"
+      - ui_label: "建模信息——使用的数据来源"
+        value: "6140e7e0-ef83-49c4-a297-9f551cf73156"
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "此过程是一个“混合过程”，代表特定区域内所有大型火力发电技术的纯发电组合。“35-330kV”表示此组合中的火电厂通常是接入高压电网的。它综合了燃煤、燃油和燃气发电技术，按照它们各自在总火电发电量（kWh）中的贡献份额进行加权平均。"
+          en: "This is a \"mix process\" representing the pure generation mix of all large-scale thermal power technologies in a specific region. The \"35-330kV\" indicates these are typically plants that connect to the high-voltage grid. It aggregates coal, oil, and gas generation technologies, weighted by their respective shares of the total thermal electricity generation (kWh)."
+      - ui_label: "管理信息——数据集格式"
+        value: "a97a0155-0234-4b87-b4ce-a45da52f2a40"
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用作LCA数据库建模的基础输入。它是构建更高级别的“电力生产组合”（即包含所有发电技术的总组合）或“电力消费混合”数据集的上游输入。此数据集未包含损失的电网电力。"
+          en: "To be used as a foundational input (building block) for LCA database modeling. It serves as an upstream input for building higher-level 'production mix' (i.e., the total mix of all technologies) or 'electricity consumption mix' datasets. This dataset does not include the loss of grid electricity."
+      - ui_label: "建模信息——数据切断和完整性原则"
+        value:
+          zh: "本清单遵循了既定的切断规则。在完整性方面，本数据集已包含所有已知的、对系统功能有显著贡献的物质流、能量流和排放流。"
+          en: "This inventory follows established cut-off rules. Regarding completeness, this dataset includes all known elementary flows, energy flows, and emissions that significantly contribute to the system's function."
+      - ui_label: "管理信息——数据集委托方"
+        value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+      - ui_label: "管理信息——数据集生成者/建模者"
+        value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+      - ui_label: "管理信息——数据录入人"
+        value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+      - ui_label: "管理信息——数据集拥有者"
+        value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+      - ui_label: "管理信息——版权？"
+        value: "否"
+      - ui_label: "管理信息——许可类型"
+        value: "对所有用户和适用类型免费"
+
+  process_3_updates:
+    process_name: "交流电生产; 电力混合; 生产组合; 1-35 kV"
+    fields:
+      - ui_label: "过程信息——定量产品或过程属性"
+        value:
+          zh: "35-330kV"
+          en: "35-330kV"
+      - ui_label: "过程信息——技术描述及背景系统"
+        value:
+          zh: "此过程代表特定地理区域在特定年份的纯发电组合。它综合了所有发电技术（如火力发电、水力发电、核能发电、风力发电和太阳能发电）按其发电量（kWh）份额加权平均的结果。"
+          en: "This process represents the pure generation mix for a specific geographical area and year. It aggregates the weighted average of all generation technologies (e.g., thermal, hydro, nuclear, wind, and solar power) based on their generation (kWh) shares."
+      - ui_label: "管理信息——数据集格式"
+        value: "a97a0155-0234-4b87-b4ce-a45da52f2a40"
+      - ui_label: "管理信息——预期应用"
+        value:
+          zh: "用作LCA数据库建模的基础输入。它是构建“电力消耗混合数据集”（这些数据集包含电网损失和基础设施）的上游输入。此数据集不应被终端用户（如工厂、家庭）直接用作电力输入，因其未能代表用户在电网特定电压水平上实际获得的、已包含损失的电力。"
+          en: "To be used as a foundational input (building block) for LCA database modeling. It serves as the upstream input for building 'electricity consumption mix' datasets (which do include grid losses and infrastructure). This dataset should not be used directly as an electricity input by an end-user (e.g., factory, home), as it does not represent the electricity actually received at a specific voltage level, which includes losses."
+      - ui_label: "建模信息——数据切断和完整性原则"
+        value:
+          zh: "本清单遵循了既定的切断规则。在完整性方面，本数据集已包含所有已知的、对系统功能有显著贡献的物质流、能量流和排放流。暂未考虑生物质发电、地热能发电等占比极小的技术。"
+          en: "This inventory follows established cut-off rules. Regarding completeness, this dataset includes all known elementary flows, energy flows, and emissions that significantly contribute to the system's function. Technologies with extremely small shares, such as biomass power generation and geothermal power generation, are not currently being considered."
+      - ui_label: "管理信息——数据集委托方"
+        value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+      - ui_label: "管理信息——数据集生成者/建模者"
+        value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+      - ui_label: "管理信息——数据录入人"
+        value: "339fec5b-cded-4b4e-9579-5e32597bb15e"
+      - ui_label: "管理信息——数据集拥有者"
+        value: "f4b4c314-8c4c-4c83-968f-5b3c7724f6a8"
+      - ui_label: "管理信息——版权？"
+        value: "否"
+      - ui_label: "管理信息——许可类型"
+        value: "对所有用户和适用类型免费"
+    exchange_updates:
+      - match: "all"
+        ui_label: "数据推导类型/状态"
+        value: "测量"
+
+process_bindings:
+  # 在此列出 JSON UUID 与模板名的对应关系，例如：
+  012c079b-e14f-421b-94af-7b2d962721a4: process_1_updates
+  19ad4903-6c2f-40f0-9fa0-a4e2151183f0: process_1_updates
+  a98eb888-d7d8-4344-acd8-95cc89d3e2fc: process_1_updates
+  de11b6fe-163b-4c6a-b23a-eeeee55a5ec4: process_1_updates
+  aa50ae6c-3630-478f-a62c-ea60d72e22b1: process_1_updates
+  e86f05dc-7556-4915-b8a3-6d3c3b8f445d: process_1_updates
+  db5db9b5-815c-4d68-8438-a147dd3c9b6d: process_1_updates
+  9c0181bc-7a8b-4f8a-b3f8-a125a0481baf: process_1_updates
+  8843f977-d14a-4c52-91a5-cd3c89866c7e: process_1_updates
+  bc47862e-6bbc-4cd5-925f-2d3f25b8ec7d: process_1_updates
+  6861c7ba-788c-4895-8500-415ad7436f74: process_1_updates
+  1ffbf228-f844-4f39-a352-40ac45bcd467: process_1_updates
+  dd43ded0-22f1-4947-bf87-a8149de3e78e: process_1_updates
+  23d50a35-3d36-4c0b-9dd8-66da150b5a24: process_1_updates
+  179478ba-2be8-4852-87f7-9efabc215db7: process_1_updates
+  58366d1c-da6c-4542-bbfc-36622e5aebc8: process_1_updates
+  954f5a62-6eae-4b1e-a9dd-5a8af5a59ebe: process_1_updates
+  11f864f7-ef8c-46d2-bc28-ee0969a0c299: process_1_updates
+  5fb81e93-8f3f-4033-8ea6-4878103f353b: process_1_updates
+  626e3627-4aa8-4694-82a3-c88de16122a3: process_1_updates
+  13879617-347b-4b50-ba33-7074bcc026af: process_1_updates
+  986c93a2-4150-4e9f-8cd4-1c866f385df6: process_1_updates
+  730f749c-5dc6-4a89-a64b-ab6b1e84af85: process_1_updates
+  727c4425-d432-49cc-a9bd-84132aa2743d: process_1_updates
+  850be60c-04eb-4955-a2cd-eeb57078b959: process_1_updates
+  1de301ae-7391-47ba-8533-6c30e1156534: process_1_updates
+  3af7d8eb-1ad0-4cf7-bf33-bb0ea7cba323: process_1_updates
+  1ddc7ed1-5d28-4fd6-a4a0-f272e65fce73: process_1_updates
+
+
+

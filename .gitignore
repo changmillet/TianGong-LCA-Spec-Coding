@@ -157,6 +157,7 @@ uv.lock
 /artifacts/
 
 test.md
+secret_key.md
 /temp/
 
 /inline_prompt.txt

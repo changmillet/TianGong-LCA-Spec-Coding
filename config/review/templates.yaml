@@ -1,0 +1,16 @@
+default:
+  context_files:
+    - config/review/report_context_default.yaml
+
+iso_14071_critical_review:
+  context_files:
+    - config/review/report_context_iso.yaml
+
+pef_verification_validation:
+  context_files:
+    - config/review/report_context_pef.yaml
+
+combined_iso_pef:
+  context_files:
+    - config/review/report_context_iso.yaml
+    - config/review/report_context_pef.yaml

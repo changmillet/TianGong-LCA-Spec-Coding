@@ -1,0 +1,31 @@
+general_information:
+  reviewers:
+    - name: ISO 14071 Panel (Lead reviewer)
+      affiliation: Tiangong LCA Data Working Group
+      contact: iso-review@tiangong.earth
+      reviewer_type: Panel Chair
+    - name: ISO 14071 Panel (Member)
+      affiliation: External expert
+      contact: iso-member@tiangong.earth
+      reviewer_type: Panel Member
+  review_completion_date: 待补充
+  compliance_system: ISO 14071:2024 critical review process
+  ef_reference_package: 不适用
+
+compliance_assessment:
+  ef_requirements:
+    status: N/A
+    comments: ISO 14071 关键审核不直接适用 EF 要求。
+  documentation:
+    status: Pending
+    comments: 请对照 ISO 14071 附录 A 模板确认。
+
+references:
+  - ISO 14071:2024 Environmental management — Life cycle assessment — Critical review processes and reviewer competencies
+
+declaration: 审查人声明，该数据集已按 ISO 14071 要求完成关键审核。
+
+signature:
+  reviewers:
+    - ISO 14071 Panel Chair（签名） _______________
+    - ISO 14071 Panel Member（签名） _______________

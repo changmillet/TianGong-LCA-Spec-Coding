@@ -1,0 +1,85 @@
+# Field definitions derived from ISO 14071 (2024) critical review requirements.
+definitions:
+  - path:
+      - modellingAndValidation
+      - validation
+      - review
+      - "@type"
+    description: Review type must be recorded according to ISO 14071 §4.3.
+    required: true
+    expected_type: string
+    allowed_values:
+      - Dependent internal review
+      - Independent internal review
+      - Independent external review
+      - Accredited third party review
+      - Independent review panel
+      - Not reviewed
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - review
+      - common:scope
+      - "@name"
+    description: Review scope name as defined in ISO 14071 §4.1 (aligned with TIDAS enumeration).
+    required: true
+    expected_type: string
+    allowed_values:
+      - Raw data
+      - Unit process(es), single operation
+      - Unit process(es), black box
+      - LCI results or Partly terminated system
+      - LCIA results
+      - Documentation
+      - Life cycle inventory methods
+      - LCIA results calculation
+      - Goal and scope definition
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - review
+      - common:scope
+      - common:method
+      - "@name"
+    description: Validation method recorded for the selected review scope (ISO 14071 §4.3).
+    required: true
+    expected_type: string
+    allowed_values:
+      - Validation of data sources
+      - Sample tests on calculations
+      - Energy balance
+      - Element balance
+      - Cross-check with other source
+      - Cross-check with other data set
+      - Expert judgement
+      - Mass balance
+      - Compliance with legal limits
+      - Compliance with ISO 14040 to 14044
+      - Documentation
+      - Evidence collection by means of plant visits and/or interviews
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - reviewDetails
+    description: Review statement content (ISO 14071 §4.4-4.5) should be documented with language metadata.
+    required: true
+    expected_type: mapping
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - common:referenceToNameOfReviewerAndInstitution
+    description: Reviewer identity and institution reference (ISO 14071 §4.2 & Annex B).
+    required: true
+    expected_type: mapping
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - common:referenceToCompleteReviewReport
+    description: Reference to the complete review report (ISO 14071 §4.5).
+    required: true
+    expected_type: mapping

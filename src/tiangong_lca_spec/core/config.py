@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     mcp_base_url: HttpUrl = "https://lcamcp.tiangong.earth/mcp"
     mcp_api_key: str | None = None
+    platform_user_id: str | None = None
     mcp_transport: Literal["streamable_http"] = "streamable_http"
     flow_search_service_name: str = "tiangong_lca_remote"
     flow_search_tool_name: str = "Search_Flows_Tool"
@@ -131,6 +132,12 @@ def _load_settings_overrides(secrets_path: Path = DEFAULT_SECRETS_PATH) -> dict[
 
     general_cfg = data.get("lca") or {}
     overrides.update({key: value for key, value in general_cfg.items() if key in Settings.model_fields})
+
+    platform_cfg = _extract_section(data, "tiangong_lca_platform", "TianGong_LCA_Platform")
+    if platform_cfg:
+        user_id_value = platform_cfg.get("user_id")
+        if isinstance(user_id_value, str) and user_id_value.strip():
+            overrides["platform_user_id"] = user_id_value.strip()
     return {key: value for key, value in overrides.items() if value is not None}
 
 
@@ -140,8 +147,17 @@ def _read_toml(path: Path) -> dict[str, Any]:
 
 
 def _extract_section(data: dict[str, Any], *candidates: str) -> dict[str, Any] | None:
+    """Return the first matching dict section, ignoring case differences."""
+    if not data:
+        return None
+    # Build a lower-case lookup so secrets sections can be written with
+    # different capitalisations (e.g. TianGong_LCA_Remote vs tiangong_lca_remote).
+    lower_lookup = {key.lower(): value for key, value in data.items() if isinstance(value, dict)}
     for key in candidates:
         section = data.get(key)
+        if isinstance(section, dict):
+            return section
+        section = lower_lookup.get(key.lower())
         if isinstance(section, dict):
             return section
     return None

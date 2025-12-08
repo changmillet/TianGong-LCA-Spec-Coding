@@ -1,0 +1,66 @@
+# Field definitions derived from PEF Annex Section 8 verification/validation checklist.
+definitions:
+  - path:
+      - processInformation
+      - dataSetInformation
+      - common:generalComment
+    description: PEF report must include narrative general comments covering assumptions and completeness.
+    required: true
+    expected_type: multilang
+
+  - path:
+      - processInformation
+      - technology
+      - technologyDescriptionAndIncludedProcesses
+    description: Technology description must be present to support communication vehicle consistency.
+    required: true
+    expected_type: multilang
+
+  - path:
+      - modellingAndValidation
+      - LCIMethodAndAllocation
+      - typeOfDataSet
+    description: PEF requires explicit declaration of the dataset type.
+    required: true
+    expected_type: string
+
+  - path:
+      - modellingAndValidation
+      - LCIMethodAndAllocation
+      - dataSourcesTreatmentAndRepresentativeness
+      - referenceToDataSource
+    description: Source reference supporting the PEF study must be recorded.
+    required: true
+    expected_type: mapping
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - review
+    description: Verification/validation block must exist for PEF compliance.
+    required: true
+    expected_type: mapping
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - review
+      - "@type"
+    description: Validation type should be specified for PEF statements.
+    required: true
+    expected_type: string
+    allowed_values:
+      - Dependent internal review
+      - Independent internal review
+      - Independent external review
+      - Accredited third party review
+      - Independent review panel
+      - Not reviewed
+
+  - path:
+      - modellingAndValidation
+      - validation
+      - reviewDetails
+    description: Validation statement content must be documented for PEF Section 8.2.
+    required: true
+    expected_type: mapping
