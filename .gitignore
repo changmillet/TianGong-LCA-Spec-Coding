@@ -160,4 +160,7 @@ test.md
 secret_key.md
 /temp/
 
+ecoinvent
+tiangong_reference_package
+
 /inline_prompt.txt
