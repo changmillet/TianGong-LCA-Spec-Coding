@@ -26,9 +26,14 @@ class OpenAIResponsesLLM:
         timeout: int = 2400,
         cache_dir: Path | None = Path("artifacts/cache/openai"),
         use_cache: bool = True,
+        base_url: str | None = None,
     ) -> None:
-        self._client = OpenAI(api_key=api_key, timeout=timeout)
+        client_kwargs: dict[str, Any] = {"api_key": api_key, "timeout": timeout}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self._client = OpenAI(**client_kwargs)
         self._model = model
+        self._base_url = base_url
         self._cache_dir = Path(cache_dir) if use_cache and cache_dir else None
         if self._cache_dir:
             self._cache_dir.mkdir(parents=True, exist_ok=True)
@@ -81,6 +86,7 @@ class OpenAIResponsesLLM:
             return None
         cache_material = {
             "model": self._model,
+            "base_url": self._base_url,
             "payload": payload,
             "text_options": text_options,
         }
@@ -109,15 +115,16 @@ class OpenAIResponsesLLM:
         return "\n".join(parts)
 
 
-def load_secrets(path: Path) -> tuple[str, str]:
-    """Load OpenAI API credentials from the secrets file."""
+def load_secrets(path: Path) -> tuple[str, str, str | None]:
+    """Load OpenAI API credentials (and optional base URL) from the secrets file."""
     secrets = tomllib.loads(path.read_text(encoding="utf-8"))
     openai_cfg = secrets.get("openai", {})
     api_key = openai_cfg.get("api_key")
     model = openai_cfg.get("model") or "gpt-5"
+    base_url = openai_cfg.get("base_url") or None
     if not api_key:
         raise SystemExit(f"OpenAI API key missing in {path}")
-    return api_key, model
+    return api_key, model, base_url
 
 
 def load_paper(path: Path) -> str:
@@ -176,28 +183,37 @@ def ensure_run_exports_dir(run_id: str, *, clean: bool = False) -> Path:
     return export_root
 
 
-def resolve_run_id(run_id: str | None) -> str:
+def _latest_run_id_path(pipeline: str | None = None) -> Path:
+    """Return the filesystem marker for the given pipeline."""
+    if pipeline == "jsonld":
+        return ARTIFACTS_ROOT / ".latest_jsonld_run_id"
+    return LATEST_RUN_ID_PATH
+
+
+def resolve_run_id(run_id: str | None, pipeline: str | None = None) -> str:
     """Return the provided run ID or fall back to the most recent run."""
     if run_id:
         return run_id
-    latest = load_latest_run_id()
+    latest = load_latest_run_id(pipeline=pipeline)
     if latest:
         return latest
     raise SystemExit("Run ID not provided and no previous run metadata found. " "Run stage1_preprocess first or supply --run-id explicitly.")
 
 
-def load_latest_run_id(path: Path = LATEST_RUN_ID_PATH) -> str | None:
+def load_latest_run_id(path: Path | None = None, *, pipeline: str | None = None) -> str | None:
     """Load the latest run identifier recorded on disk, if any."""
-    if not path.exists():
+    target = path or _latest_run_id_path(pipeline)
+    if not target.exists():
         return None
-    run_id = path.read_text(encoding="utf-8").strip()
+    run_id = target.read_text(encoding="utf-8").strip()
     return run_id or None
 
 
-def save_latest_run_id(run_id: str, path: Path = LATEST_RUN_ID_PATH) -> None:
+def save_latest_run_id(run_id: str, path: Path | None = None, *, pipeline: str | None = None) -> None:
     """Persist the most recent run identifier for subsequent stages."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(run_id, encoding="utf-8")
+    target = path or _latest_run_id_path(pipeline)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(run_id, encoding="utf-8")
 
 
 def run_cache_path(run_id: str, relative: str | Path) -> Path:

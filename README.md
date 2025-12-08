@@ -47,7 +47,7 @@
 
 4. **执行流程编排示例（需自行实现 LLM 客户端后）**
    ```bash
-   uv run python scripts/run_test_workflow.py --skip-tidas
+   uv run python scripts/md/run_test_workflow.py --skip-tidas
    ```
    *该入口示例留作扩展，可在 `src/orchestrator` 目录中补充。*
 
@@ -69,6 +69,10 @@
 - `src/tiangong_lca_spec/orchestrator`：整体编排管线。
 
 完成 `uv sync` 后即可进行模块开发与单元测试，确保在符合 Python 3.12 及以上版本的环境中运行。
+
+### 导出数据约定
+
+- 生成的流程数据集中，行政信息里的 `common:referenceToCommissioner`、`common:referenceToPersonOrEntityEnteringTheData` 与 `common:referenceToOwnershipOfDataSet` 均指向默认联系人，并使用 `../contacts/<uuid>_<version>.xml` 形式的 `@uri`，即在联系人文件名后附加 `_@version` 以匹配对应的版本号。
 
 ### MCP 服务配置与校验
 
@@ -107,10 +111,53 @@ uv run tidas-validate -i artifacts
 
 如需调整服务名称或地址，可直接在 `.secrets/secrets.toml` 对应节内覆盖 `service_name`、`url` 等字段，或使用实际环境变量覆盖 `LCA_*` 前缀的设置。
 
-### 将提示转换为内联代码并执行示例
+### 知识库检索自测
+
+完成 `[kb]` 凭据配置后，可以通过 `scripts/kb/retrieve.py` 直接命中知识库检索端点（`POST /datasets/{dataset_id}/retrieve`），用于核对索引是否生效、查看返回的 chunk 内容等：
+
 ```bash
-uv run python scripts/convert_prompt_to_inline.py --source-json test/data/test_process.json
+uv run python scripts/kb/retrieve.py \
+  --query "锂电池碳足迹" \
+  --top-k 5 \
+  --search-method hybrid_search \
+  --score-threshold-enabled
+```
+
+- `--retrieval-model/--retrieval-model-file`、`--search-method`、`--reranking-*` 可覆盖检索模型配置。
+- `--metadata-filters`（或同名 `-file`）允许直接传入 JSON 数组，复用 Web 控制台中的过滤条件；如果只想临时筛选，可多次使用 `--filter category:eq=battery` 这种语法并用 `--filter-operator` 控制逻辑关系。
+- 通过 `--payload/--payload-file` 可以整体覆写请求体，脚本只会在此基础上再应用命令行中的增量参数。
+- 默认以易读格式打印命中的段落，可通过 `--format json` 输出原始响应，便于进一步处理。
+
+### 将提示转换为内联代码并执行示例
+- **文献流程**
+```bash
+uv run python scripts/md/convert_prompt_to_inline.py --source-json test/data/test_process.json
 
 # 危险操作：直接执行转换后的内联prompt（请确保已了解风险）
 codex exec --dangerously-bypass-approvals-and-sandbox "$(cat inline_prompt.txt)"
 ```
+
+### 文献 vs JSON-LD 工作流入口
+
+- **文献（非结构化）数据**：使用 `scripts/md/` 下的 Stage 1→4。
+- **JSON-LD（OpenLCA）数据**：使用 `scripts/jsonld/` 下的 Stage 1→3（或 `run_pipeline.py` 一键执行），共享相同的 `_workflow_common`/TIDAS/发布基础设施。
+
+| 数据源 | Stage 1 | Stage 2 | Stage 3 | Stage 4 | 说明 |
+|--------|---------|---------|---------|---------|------|
+| 文献 Cleantext | `scripts/md/stage1_preprocess.py` | `scripts/md/stage2_extract_processes.py` | `scripts/md/stage3_align_flows.py` | `scripts/md/stage4_publish.py` | 原始流程，LLM 提取 + FlowSearch 对齐 |
+| JSON-LD | `scripts/jsonld/stage1_jsonld_extract.py` | `scripts/jsonld/stage2_jsonld_validate.py` | `scripts/jsonld/stage3_jsonld_publish.py` | *(自动隶属于 Stage 3)* | 针对 JSON-LD 的 LLM 重建、校验与发布 |
+
+快速运行 JSON-LD 管线（默认会生成全新 run 并写入 `artifacts/.latest_jsonld_run_id`；若要复用旧缓存，请显式传入 `--run-id <ID>`）：
+
+```bash
+uv run python scripts/jsonld/run_pipeline.py \
+  --process-dir test/data/json_ld/processes \
+  --flows-dir test/data/json_ld/flows \
+  --sources-dir test/data/json_ld/sources \
+  --secrets .secrets/secrets.toml \
+  --clean-exports \
+  --dry-run-publish
+```
+
+去掉 `--dry-run-publish` 即可在 Stage 3 真正提交至 `Database_CRUD_Tool`。
+

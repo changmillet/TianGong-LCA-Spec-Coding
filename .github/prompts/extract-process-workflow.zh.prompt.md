@@ -4,7 +4,7 @@
 
 流程抽取工作流的角色划分如下：
 - **Stage 1（预处理）**：解析原始论文/资料，输出结构化 `clean_text` 供后续调用。
-- **Stage 2（流程生成）**：Codex 驱动 LLM 提取流程块，补充 `FlowSearch hints` 与换算假设，是后续对齐的基础资料。
+- **Stage 2（流程生成）**：Codex 先运行 **流程清单阶段**（枚举所有表格行/单元操作，分配稳定 `processId`），再逐个流程生成完整的 `processDataSet`，并在 **每个 `exchanges.exchange` 中直接生成合规的 `flowHints` 结构**（含 basename、treatment、mix_location、source_or_pathway 等字段），不可依赖 Stage 3 的兜底修正。列举候选流程时，将 “life cycle”“scenario”“system-level”等字样仅视作风险提示：若对应表格/段落仍包含**物理 LCI 清单行**（单位如 kg、g、t、m²、m³、pcs、kWh、MJ），可以保留；若只出现 LCIA 指标（ADP、AP、GWP、EP、PED、RI 等）以及 “kg CO₂ eq.”、“kg SO₂ eq.”、“kg Sb eq.”、“kg PO₄³⁻ eq.”、“kg PM₂.₅ eq.”、“MJ（impact）” 等典型单位，则认定为 LCIA 结果，禁止导出为流程。同样，如果文本仅写“清单见表 4”但 `clean_text` 并未包含该表的具体数据行，也判定为缺少量化 LCI，应直接跳过。
 - **Stage 3（流对齐与制品导出）**：结合 MCP 检索结果与人工上下文，确认每个交换量的标准流，并进一步合并结果、生成 `artifacts/<run_id>/exports/` 下的 ILCD 制品、执行本地校验，最终汇总 `workflow_result.json`。
 
 每次运行都会在 `artifacts/<run_id>/` 下创建独立目录，`run_id` 为 UTC 时间戳（Stage 1 会打印并写入 `artifacts/.latest_run_id`）。目录结构包含：
@@ -21,8 +21,51 @@
 - **终态 JSON 要求**：最终交付的 `workflow_result.json` 必须基于已通过 Stage 3 制品校验的数据生成，去除调试字段、空结构或临时备注，确保各流程数据集严格符合 schema、内容“干干净净”可直接入库。
 - **MCP 预检一次**：随手写个 5 行 Python（导入 `FlowSearchService` + 构造 `FlowQuery`）测试单个交换量，确认凭据与网络正常，再启动 Stage 3，避免长时间超时才发现配置错误。
 - **控制交换数量**：Stage 3 的流检索串行执行（`flow_search_max_parallel=1`），每个 `exchange` 都会独立调用 MCP。Stage 2 现要求逐行复刻文献表格——每条原始清单行都要生成独立的 `exchange`（不得合并、平均或省略）。如表格含情景或脚注信息，请完整写入 `generalComment`，以便 Stage 3 能按原始来源逐条对齐。
-- **补充检索线索**：为每个 `exchange` 的 `generalComment` 写入常见同义词（语义近似描述，如“electric power supply”）、别名或缩写（如“COG”“DAC”）、化学式/CAS 号，以及中英文对照的关键参数，这样 FlowSearchService 的多语言同义词扩展能利用更丰富的上下文提升召回率。高频基础流（`Electricity, medium voltage`、`Water, process`、`Steam, low pressure`、`Oxygen`、`Hydrogen`、`Natural gas, processed` 等）要求至少列出 2~3 个中英文别称或典型描述（如“grid electricity 10–30 kV”“中压电”“technological water”“饱和蒸汽 0.4 MPa”“O₂, CAS 7782-44-7”），并说明状态/纯度/来源。`generalComment` 必须以 `FlowSearch hints:` 开头，并按 `en_synonyms=... | zh_synonyms=... | abbreviation=... | formula_or_CAS=... | state_purity=... | source_or_pathway=... | usage_context=...` 的结构填写，缺项使用 `NA` 保持字段占位，末尾再补充表格引用或换算假设。缺少这些线索时 MCP 往往只返回中文短名或低相似度候选，Stage 3 会落回占位符。
-- **Stage 2 产物自检**：在进入 Stage 3 前抽样查看 `artifacts/<run_id>/cache/stage2_process_blocks.json`，确保每个 `exchange.generalComment` 都包含上述 `FlowSearch hints` 结构、关键同义词与中英对照参数；若发现仍是“Table X”式的简短描述，必须回到 Stage 2 重新生成或手动补写上下文，否则 Stage 3 会因为缺少语义信号导致大量 `unmatched:placeholder`。
+- **补充检索线索**：为每个 `exchange` 的 `flowHints` 对象（同时会序列化到 `generalComment` 中）写入常见同义词（语义近似描述，如“electric power supply”）、别名或缩写（如“COG”“DAC”）、化学式/CAS 号，以及中英文对照的关键参数，这样 FlowSearchService 的多语言同义词扩展能利用更丰富的上下文提升召回率。高频基础流（`Electricity, medium voltage`、`Water, process`、`Steam, low pressure`、`Oxygen`、`Hydrogen`、`Natural gas, processed` 等）必须列出至少 2~3 个中英文别称或典型描述（如 “grid electricity 10–30 kV”“中压电”“technological water”“饱和蒸汽 0.4 MPa”），并写明状态/纯度/来源。`flowHints` / `generalComment` 必须以 `FlowSearch hints:` 顺序输出下列字段（除 `zh_synonyms` 外所有字段都要优先给出英文）：
+  - `basename=...`：使用行业技术语言准确描述该流的通用名称，先写全称，再根据需要补充常用缩写，在必要时说明形态或等级（例如 气态、颗粒、再生料），避免不必要的地理、时间或定量信息。同一字段内使用逗号分隔描述，不使用分号。优先采用通用俗名，仅当需要时使用复杂化学命名。对排放类流量通常仅需基础名称，除非需要补充定量属性；首次出现缩写需“全称 + 缩写”。示例： “Polypropylene, PP, granulate”“Sulfur dioxide, gaseous”“聚丙烯, PP, 颗粒料”。
+  - `treatment=...`：以逗号连接处理方式、标准、质量属性、用途及工艺路线等限定词。先写处理方式，再写标准或等级，随后补充质量与用途信息。根据需要注明原料来源或路线。写明处理方式（如 热轧、精制、灭菌等）。引用适用标准或等级（如 EN 10025 S355、ASTM D4806 等）。记录关键性能属性（如 抗紫外、食品级）。用途限定清晰表达（如 用于晶圆生产、医用包装）。注明原生或再生来源，以及具体路线（如 再生料、蒸汽裂解路线）。示例：“Hot rolled, EN 10025 S355, primary production route”“精制，符合 ASTM D4806，燃料级乙醇”。
+  - `mix_location=...`：以逗号标注混合类型与交付位置。区分生产混合、消费混合或特定技术。使用“在”表示交割点，“至”表示包含运输至该节点。说明是否为生产混合（多路线平均）或消费混合（包含进出口）。标出交付/可得位置（如 在工厂、在批发、在零售点、至终端消费者）。需要时补充至废物处理设施等描述。若两类信息均不适用，可留空；否则需提供。示例：“生产混合，在工厂”“消费混合，至终端消费者”“特定技术，至批发商”“生产混合，至废物焚烧厂”。用途限定应写在 treatmentStandardsRoutes 字段，避免混淆。
+  - `flow_properties=...`：以逗号列出定量属性，并明确计量基准。列出关键组分含量或能量密度。若计量基准不同于质量分数，需额外说明。量化核心属性（如 45 % Fe、9.6 MJ/kg 净热值）。注明体积分数、摩尔分数或干基等特殊基准。使用 SI 单位或行业惯用单位。按重要性排序。避免重复其他字段已有的信息。示例：“45 % Fe mass/mass”“9.6 MJ/kg net calorific value”“90.5 % methane by volume”。
+  - `en_synonyms=...`：英文同义词/商品名/别名（分号分隔），常见公用工程至少两个条目，避免与 `basename` 重复；严禁输出 `['Electricity', 'Electric power', ...]` 这类 Python 列表语法，必须写成 `Electricity; Electric power; ...`。
+  - `zh_synonyms=...`：中文同义词/别名（分号分隔），仅记录经过验证的称谓，可包含简体/繁体或常见别名，同样禁止使用方括号列表表示。
+  - `abbreviation=...`：权威缩写或短标签（如 “MV electricity”“NCM622-SiGr”）。
+  - `state_purity=...`：写明物理形态、纯度/等级及关键压力、温度等条件（“AC 10–30 kV, 50 Hz”“Liquid, battery grade, 31–37 wt% HCl”）。
+  - `source_or_pathway=...`：供应/生产路线、原料来源或地理范围，先写英文（如 “Regional grid, CN; Secondary aluminium route”），若需中文解释可在括号中附注。
+  - `usage_context=...`：引用场景（表格编号、工序名称、功能角色），例如 “Input to cathode coating line, Table 3”。
+  - `formula_or_CAS=...`（可选）：填写可用的化学式或 CAS 号。若确无信息，请省略该字段而不是补占位符。
+
+所有必填字段必须写入真实内容，严禁空串或 “NA/N/A”，也不要只在自由备注中描述而让结构化字段留空。若文献未明示，请结合上下文推断（如典型纯度、供应路径）或用严谨语言描述最佳可得信息，再在末尾补充表格引用或换算假设。缺少这些线索时 MCP 往往只返回中文短名或低相似度候选，Stage 3 会落回占位符。
+
+**流程必填元数据清单（Stage 2 必须输出）：**
+
+- `processInformation.dataSetInformation.common:generalComment`：2~4 句交代系统边界、假设、来源。**注意**：所有叙述性文本（方法、假设、引用说明）必须写在此处或 `common:generalComment` 的多语言字段中，不得塞进 `functionalUnitFlowProperties`、`referenceTo*` 等结构字段。
+- `processInformation.dataSetInformation.identifierOfSubDataSet`：稳定 ID（如 “P001”“Production stage”）。
+- `processInformation.dataSetInformation.name.functionalUnitFlowProperties`：描述功能单位限定条件（例如 “per 1 kg cathode material, dry basis”）。
+- `processInformation.quantitativeReference.referenceToReferenceFlow` 与 `functionalUnitOrOther`：与参考流量/单位一致。
+- `processInformation.time`：填写 `referenceYear`，并在掌握数据时补充 `dataSetValidUntil`、`timeRepresentativeness`。
+- `processInformation.geography.locationOfOperationSupplyOrProduction`：设置 `@location`（ISO 代码）及必要注释。
+- `modellingAndValidation.LCIMethodAndAllocation`：写明 `typeOfDataSet`、`LCIMethodPrinciple`、分配/截断策略。
+- `modellingAndValidation.validation.review`：必须存在，缺省可写 “Not reviewed”。
+- `modellingAndValidation.complianceDeclarations`：填满 ILCD 合规性条目（命名法、方法论、文档、质量）。
+- `modellingAndValidation.dataSourcesTreatmentAndRepresentativeness`：分别描述 `dataCutOffAndCompletenessPrinciples`、`dataSelectionAndCombinationPrinciples`、`dataTreatmentAndExtrapolationsPrinciples`、`referenceToDataHandlingPrinciples`，并列出 `referenceToDataSource`。
+- `administrativeInformation.common:commissionerAndGoal.common:intendedApplications`：说明数据拟用于何种分析。
+- `administrativeInformation.dataEntryBy` / `publicationAndOwnership`：时间戳、数据格式引用、数据所有权、版本号及（若有）前一版本引用。
+- **不要伪造外部引用**：`common:referenceToPrecedingDataSetVersion`、`common:referenceToUnchangedRepublication`、`common:referenceToRegistrationAuthority`、`common:referenceToEntitiesWithExclusiveAccess`、`referenceToDataHandlingPrinciples`、`referenceToLCAMethodDetails`、`referenceToSupportedImpactAssessmentMethods` 等字段本身是**可选**，只有在原文或上游资料明确给出联系人、数据集 UUID 或官方文档编号时才输出。若缺少可验证的引用，请完全省略该字段（连同空字典/字符串也不要生成），更不能以自然语言段落占位。示例：
+  ```json
+  {
+    "modellingAndValidation": {
+      "dataSourcesTreatmentAndRepresentativeness": {
+        "referenceToDataHandlingPrinciples": {
+          "referenceToDocument": {
+            "common:UUID": "c1b2d3e4-f567-4890-9123-abcdef456789"
+          }
+        }
+      }
+    }
+  }
+  ```
+  若上述 UUID/联系人并不存在，则**直接省略整个 `referenceToDataHandlingPrinciples` 字段**。
+- **Stage 2 产物自检**：在进入 Stage 3 前抽样查看 `artifacts/<run_id>/cache/stage2_process_blocks.json`，确保每个 `exchange` 同时具备 `exchangeName` 与 `flowHints` 对象，且字段全部为规范描述（不得是 “Table X”“GLO”“CN”“NA”“LN2” 等占位/缩写）。一旦发现占位符或缺失字段，必须在 Stage 2 直接重新生成或修正，禁止依赖后续阶段兜底。
 - **规范流名称**：优先采用 Tiangong/ILCD 常用流名，不保留论文里的括号或工艺限定（如 `Electricity for electrolysis (PV)`）。规范名称能显著提高 Stage 3 命中率，减少重复检索与超时。
 - **长耗时命令提前调参**：Stage 2/3 可能超过 15 分钟；在受限环境下先提升命令超时（如外层 CLI 15min 限制）或增加 `.secrets` 中的 `timeout` 字段，避免半途被杀导致反复重跑。
 - **限定重试次数**：对同一 LLM/MCP 调用的重试不超过 2 次，且每次调整 prompt 或上下文都要说明理由；若问题持续，转为人工分析并同步用户。
@@ -65,7 +108,9 @@ uv run python scripts/stage4_publish.py --run-id "$RUN_ID" \
 ```
 Stage 3 校验通过后会自动调用上述发布脚本完成入库（全流程无干跑）。若 `artifacts/<run_id>/cache/published.json` 已存在，将默认跳过自动发布；确认需要重新提交时，删除该文件或在 Stage 3 指定 `--force-publish`。
 
-- `stage3_align_flows.py` 若检测到 `.secrets/secrets.toml` 中的 OpenAI 凭据，会自动启用 LLM 评分评估 MCP 返回的 10 个候选；否则退回本地相似度匹配。脚本会在对齐前校验每个交换是否同时具备 `exchangeName` 与 `FlowSearch hints`（字段要求见 §0），缺项时默认中断（仅可用 `--allow-missing-hints` 放行提示缺失）。当缺少 `exchangeName` 时，会优先从 `FlowSearch hints` 的多语言同义词中自动补足。输出的 `artifacts/<run_id>/cache/stage3_alignment.json` 同步携带 `process_id`、`matched_flows`、`unmatched_flows` 与 `origin_exchanges`，并在 CLI 中打印各流程的命中统计。
+- `stage3_align_flows.py` 若检测到 `.secrets/secrets.toml` 中的 OpenAI 凭据，会自动启用 LLM 评分评估 MCP 返回的 10 个候选；否则退回本地相似度匹配。脚本会在对齐前校验每个交换是否同时具备 `exchangeName` 与完整的 `FlowSearch hints`（字段要求见 §0），缺项即中断，已不再尝试自动补写或猜测。输出的 `artifacts/<run_id>/cache/stage3_alignment.json` 同步携带 `process_id`、`matched_flows`、`unmatched_flows` 与 `origin_exchanges`，并在 CLI 中打印各流程的命中统计。
+- Stage 3 继续复用已有的 ILCD format 数据源（UUID `a97a0155-0234-4b87-b4ce-a45da52f2a40`）以及共享的 ILCD entry-level 合规体系 UUID (`d92a1a12-2545-49e2-a585-55c259997756`)，仅在流程与流数据集中写入这些引用块，不会在 `exports/sources/` 目录重新生成这些共享数据集的本地文件。
+- 所有导出的 ILCD 文件在相对 `@uri` 引用中统一采用带版本号的命名方式：`../processes/{uuid}_{version}.xml`、`../flows/{uuid}_{version}.xml`、`../sources/{uuid}_{version}.xml`，便于下游系统直接定位到具体版本。
 
 ## 3. 核心数据结构
 ```python
@@ -76,8 +121,6 @@ from typing import Any, Mapping, Literal
 class FlowQuery:
     exchange_name: str
     description: str | None = None
-    process_name: str | None = None
-    paper_md: str | None = None
 
 @dataclass(slots=True)
 class FlowCandidate:
@@ -115,12 +158,12 @@ class WorkflowResult:
 ```
 
 ## 4. Flow Search
-- `FlowSearchClient` 使用 `MCPToolClient.invoke_json_tool` 访问远程 `Search_flows_Tool`，根据 `FlowQuery` 自动构造检索上下文。
+- `FlowSearchClient` 使用 `MCPToolClient.invoke_json_tool` 访问远程 `Search_flows_Tool`，根据 `FlowQuery` 自动构造检索上下文（仅包含 `exchange_name` 与 `FlowSearch hints`）。
 - `FlowQuery.description` 直接来自 Stage 2 `exchange.generalComment` 的 `FlowSearch hints` 字符串；保持字段顺序与分隔符一致，便于 QueryFlow Service 提取多语言同义词和物性信息。
 - 远程 `tiangong_lca_remote` 工具内部已接入 LLM，会基于整段 `generalComment` 自动扩展同义词并执行全文 + 语义混合检索，因此无需在 Stage 3 手动再造额外提示。
 - 只要 `generalComment` 内容完整且精炼，就可以信任 `tiangong_lca_remote` 返回的候选；重点是从结果中挑选最贴合的流并补写必要说明。
 - `stage3_align_flows.py` 是唯一入口：不要在 Stage 2 直接拼接 `referenceToFlowDataSet`，而是让 Stage 3 读取 Stage 2 的 `process_blocks` 并触发检索。
-- 运行 Stage 3 前先快速抽样核查：选 1~2 个交换量搭建 `FlowQuery` 调试，确认服务是否返回候选（避免整批跑空）。
+- 运行 Stage 3 前先快速抽样核查：选 1~2 个交换量搭建 `FlowQuery` 调试，确认服务是否返回候选（避免整批跑空）。如遇不到匹配，优先检查 `FlowSearch hints` 是否完整——Stage 3 现在只依赖 `exchange_name` 与该字符串进行搜索。
 - 每个交换量至少发起一次 MCP 检索；如果 3 次以内仍失败，才将该交换标记为 `UnmatchedFlow` 并写入原因。
 - 采用指数退避重试；捕获 `httpx.HTTPStatusError` / `McpError`，必要时剥离上下文以规避 413/5xx。
 - `FlowSearchService` 负责相似度过滤、缓存命中记录与 `UnmatchedFlow` 组合；Stage 3 结束后需根据日志统计确认命中率，并记录仍未命中的交换量。
@@ -141,6 +184,7 @@ class WorkflowResult:
   - 若 LLM 未返回 `processDataSets` / `processDataSet`，抛出 `ProcessExtractionError`。
   - 表格字段需统一换算到易于对齐的基础单位（例如 t→kg、Nm³ 保持立方米、体积按密度说明假设），并在 `generalComment` 中标注换算逻辑。
   - `finalize` 通过 `build_tidas_process_dataset` 补齐 ILCD/TIDAS 必填字段，产出仅含 `processDataSet`（附 `process_id` 等元数据）的流程块；Stage 2 不再返回旧版 `exchange_list` 缓存。
+  - **禁止** 在 Stage 2 输出中写入 ILCD 根级元数据（`@xmlns`、`@xmlns:common`、`@xmlns:xsi`、`@xsi:schemaLocation`、`@version`、`@locations` 等）；这些字段由 Stage 3/TIDAS 归一化器统一注入，任何上游自带值都会被覆盖。
 - LLM 输出校验清单：
   1. 顶层必须是 `processDataSets` 数组；
   2. 每个流程需包含 `processInformation.dataSetInformation.name` 中的四个子字段：`baseName`、`treatmentStandardsRoutes`、`mixAndLocationTypes`、`functionalUnitFlowProperties`；
@@ -163,8 +207,9 @@ class WorkflowResult:
 - 集成验证：使用最小论文样例依次执行 `stage1`→`stage3`，核对产物 schema、命中统计与校验报告；如需复核发布负载，可额外手动运行 `stage4_publish`，当前工作流在校验通过后会自动入库。
 - 观测：启用 `configure_logging` JSON 输出并筛选 `flow_alignment.exchange_failed`、`process_extraction.parents_uncovered` 等关键事件，快速定位异常阶段。
 
-## 10. 分类与地理辅助资源
+## 10. 分类与地理辅助资源 
 - `tidas_processes_category.json` (`src/tidas/schemas/tidas_processes_category.json`) 是流程分类的权威来源，覆盖 ISIC 树的各级代码与描述。若 Codex 需要确认分类路径，先使用 `uv run python scripts/list_process_category_children.py <code>` 逐层展开（`<code>` 为空时输出顶层，例如 `uv run python scripts/list_process_category_children.py 01`）。必要时可通过 `tiangong_lca_spec.tidas.get_schema_repository().resolve_with_references("tidas_processes_category.json")` 读取局部节点，再将相关分支文本粘贴到对 Codex 的提问里，帮助其在有限上下文里挑选正确的 `@classId` / `#text`。
+- Stage 2 的分类器已经改为“逐级候选”模式：每一层都会将当前可选的 `code`/`description` 列表（来自上面的 JSON）放进 LLM `context.candidates` 中，并使用提示 `You are selecting level {level}...` 要求模型只返回一个 `{"@level": "...", "@classId": "...", "#text": "..."}`。若你需要手工协助或调试，务必按照同样的方式逐级提供候选，单次对话只决定一层，避免一次性输出整条路径。
 - 地理编码沿用 `tidas_locations_category.json` (`src/tidas/schemas/tidas_locations_category.json`)；用法与上面一致，命令为 `uv run python scripts/list_location_children.py <code>`（例如 `uv run python scripts/list_location_children.py CN` 查看中国内部层级）。在向 Codex 说明地理选项时，同样只摘录与当前流程相关的分支，避免传送整棵树。
 - 若流程涉及流分类，可调用 `uv run python scripts/list_product_flow_category_children.py <code>` 查看产品流分类（数据源 `tidas_flows_product_category.json`），或调用 `uv run python scripts/list_elementary_flow_category_children.py <code>` 查看初级流分类（数据源 `tidas_flows_elementary_category.json`）。
 
@@ -174,11 +219,17 @@ class WorkflowResult:
 - `Database_CRUD_Tool` 入参包含：
   - `operation`：`"select"`、`"insert"`、`"update"`、`"delete"`。
   - `table`：`"flows"`、`"processes"`、`"sources"`、`"contacts"`、`"lifecyclemodels"`。
-  - `jsonOrdered`：`insert` / `update` 必填，传入完整的 ILCD 文档（如 `{"processDataSet": {...}}`），保持命名空间、时间戳、引用字段。
+- `jsonOrdered`：`insert` / `update` 必填，传入完整的 ILCD 文档（如 `{"processDataSet": {...}}`），保持命名空间、时间戳、引用字段。
   - `id`：`insert` / `update` / `delete` 必填，取自数据集 `dataSetInformation` 的 UUID。
   - `version`：`update` / `delete` 必填，对应 Supabase `version` 列。
   - 可选 `filters`、`limit` 仅在 `select` 时使用。
 - 实际运行中如果 `insert` 因 UUID 冲突失败，发布器会自动改用 `update` 重试；请确保 `administrativeInformation.publicationAndOwnership.common:dataSetVersion` 与目标记录保持一致。
+- 流属性映射已经整理为 `src/tiangong_lca_spec/tidas/flow_property_registry.py`，可通过 `uv run python scripts/flow_property_cli.py list` 查看全部映射，`show`/`match-unit` 根据名称或单位定位，`emit-block` 直接输出可嵌入的 ILCD `flowProperties` 片段。该 CLI 直接读取 `flowproperty_unitgroup_mapping.json`，脚本/自动化会与映射保持同步。
+- Stage 3 与 Stage 4 发布策略更新：
+  - 若对齐命中了现有流但缺少 `flow_properties` 信息，Stage 4 会基于原 UUID 重建数据集，引入正确的流属性块，并将 `common:dataSetVersion` 的补丁位 `+1` 后以 `update` 提交，从而在库内就地升级。
+  - 若库中没有任何匹配流，则继续沿用原逻辑生成新流数据集（发布时分配新 UUID），同样会根据映射补齐参考单位组。
+  - 初级流仍然只能复用现有条目，若 Stage 3 仍输出 `unmatched:placeholder`，需先补充提示或人工映射后再发布。
+- Stage 4 额外暴露 `--default-flow-property <uuid>`（自定义找不到明确映射时的兜底属性，默认仍为质量属性 `93a60a56-a3c8-11da-a746-0800200b9a66`）与 `--flow-property-overrides overrides.json`（载入 `{"exchange": "...", "flow_property_uuid": "...", "process": "...", "mean_value": "..."}` 形式的覆盖项，可按交换名称或“流程+交换”精准指定属性及均值）。
 - 成功响应会回显 `id`、`version` 以及 `data` 数组；校验失败会抛出 `SpecCodingError`，直接根据错误中的 JSON 路径修正数据集再重试。
 - 入库自查清单：
   - 保留 ILCD 根级属性（`@xmlns`、`@xmlns:common`、`@xmlns:xsi`、schemaLocation）并写入 `administrativeInformation.dataEntryBy.common:timeStamp`、`common:referenceToDataSetFormat`、`common:referenceToPersonOrEntityEnteringTheData`。
@@ -186,4 +237,3 @@ class WorkflowResult:
   - 流数据需补齐 `flowProperties.flowProperty`（质量属性 UUID `93a60a56-a3c8-11da-a746-0800200b9a66`）、`quantitativeReference.referenceToReferenceFlowProperty` 以及合适的 `classificationInformation` 或 `elementaryFlowCategorization`。
   - 流程数据保留 Stage 3 的功能单位、交换量与 `modellingAndValidation`；来源数据保留文献元信息与发布时间。
 - 批量发布时优先按 `flows`→`processes`→`sources` 顺序提交，及时记录返回的 `id` / `version` 以备审计。
-- **Elementary flows**：排放/资源类初级流只能从现有数据库选择；若 Stage 3 仍返回 `unmatched:placeholder`，需要先修复提示或手工映射，Stage 4 不会为这类流生成新数据集。只有真实的产品/废物流在库中缺失时才允许按产品流的模板新建。

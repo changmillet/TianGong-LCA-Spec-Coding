@@ -7,7 +7,15 @@ from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
-from _workflow_common import OpenAIResponsesLLM, dump_json, load_paper, load_secrets
+try:
+    from scripts.md._workflow_common import (  # type: ignore
+        OpenAIResponsesLLM,
+        dump_json,
+        load_paper,
+        load_secrets,
+    )
+except ModuleNotFoundError:  # pragma: no cover - allows direct CLI execution
+    from _workflow_common import OpenAIResponsesLLM, dump_json, load_paper, load_secrets
 
 from tiangong_lca_spec.orchestrator import WorkflowOrchestrator
 
@@ -34,9 +42,9 @@ def _to_serializable(obj: Any) -> Any:
 
 
 def run_workflow(paper_path: Path, output_path: Path, skip_tidas: bool) -> None:
-    api_key, model = load_secrets(Path(".secrets/secrets.toml"))
+    api_key, model, base_url = load_secrets(Path(".secrets/secrets.toml"))
     paper_md_json = load_paper(paper_path)
-    llm = OpenAIResponsesLLM(api_key=api_key, model=model)
+    llm = OpenAIResponsesLLM(api_key=api_key, model=model, base_url=base_url)
 
     orchestrator = WorkflowOrchestrator(llm)
     if skip_tidas:
