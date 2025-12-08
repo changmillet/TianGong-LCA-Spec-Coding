@@ -111,6 +111,7 @@ SAMPLE_PROCESS_DATASET = {
             {
                 "@dataSetInternalID": "1",
                 "exchangeDirection": "Input",
+                "exchangeName": "Electric energy, medium voltage",
                 "referenceToFlowDataSet": {
                     "@type": "flow data set",
                     "@refObjectId": "00000000-0000-0000-0000-000000000000",
@@ -124,6 +125,22 @@ SAMPLE_PROCESS_DATASET = {
                 "meanAmount": "1.0",
                 "resultingAmount": "1.0",
                 "dataDerivationTypeStatus": "Measured",
+                "flowHints": {
+                    "basename": "Electric energy, medium voltage",
+                    "treatment": "Grid supply, industrial consumer",
+                    "mix_location": "Consumption mix, at plant (CN)",
+                    "flow_properties": "Energy flow, kWh",
+                    "en_synonyms": [
+                        "Electric energy, medium voltage",
+                        "Grid electricity 10-30 kV",
+                    ],
+                    "zh_synonyms": ["中压电力"],
+                    "abbreviation": "EE MV",
+                    "state_purity": "AC 10-30 kV, 50 Hz",
+                    "source_or_pathway": "Regional grid, CN",
+                    "usage_context": "Input to hydrogen production process",
+                    "formula_or_CAS": "Not applicable",
+                },
             }
         ]
     },
@@ -135,10 +152,34 @@ class FakeLLM:
 
     def invoke(self, input_data: dict[str, object]) -> dict[str, object]:
         prompt = str(input_data.get("prompt", ""))
+        if prompt.startswith("You are enumerating"):
+            return {
+                "processes": [
+                    {
+                        "processId": "P001",
+                        "name": "Example hydrogen production",
+                        "aliases": [],
+                        "description": "Example hydrogen production",
+                        "evidence": ["test"],
+                    }
+                ]
+            }
         if prompt.startswith("You are an expert LCA analyst"):
             return {"processDataSet": deepcopy(SAMPLE_PROCESS_DATASET)}
         if prompt.startswith("You are analysing a life cycle assessment document"):
             return {"parentProcesses": []}
+        if prompt.startswith("You are selecting level"):
+            context = input_data.get("context") or {}
+            candidates = context.get("candidates") or []
+            if not candidates:
+                raise AssertionError("Classification prompt missing candidates")
+            choice = candidates[0]
+            level = choice.get("level", context.get("level", 0))
+            return {
+                "@level": str(level),
+                "@classId": choice.get("code", "C"),
+                "#text": choice.get("description", "Manufacturing"),
+            }
         if "Derive the ISIC classification" in prompt:
             return [
                 {"@level": "0", "@classId": "C", "#text": "Manufacturing"},

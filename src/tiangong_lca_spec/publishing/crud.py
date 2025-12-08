@@ -9,23 +9,23 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Optional, Sequence, Protocol
+from typing import Any, Iterable, Mapping, Optional, Protocol, Sequence
 
 from tiangong_lca_spec.core.config import Settings, get_settings
 from tiangong_lca_spec.core.constants import build_dataset_format_reference
 from tiangong_lca_spec.core.exceptions import SpecCodingError
+from tiangong_lca_spec.core.json_utils import parse_json_response
 from tiangong_lca_spec.core.logging import get_logger
 from tiangong_lca_spec.core.mcp_client import MCPToolClient
 from tiangong_lca_spec.core.uris import build_local_dataset_uri, build_portal_uri
-from tiangong_lca_spec.core.json_utils import parse_json_response
-from tiangong_lca_spec.workflow.artifacts import flow_compliance_declarations
 from tiangong_lca_spec.tidas.flow_property_registry import FlowPropertyRegistry, get_default_registry
+from tiangong_lca_spec.workflow.artifacts import flow_compliance_declarations
 
 LOGGER = get_logger(__name__)
 
 DATABASE_TOOL_NAME = "Database_CRUD_Tool"
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-PRODUCT_CATEGORY_SCRIPT = PROJECT_ROOT / "scripts" / "list_product_flow_category_children.py"
+PRODUCT_CATEGORY_SCRIPT = PROJECT_ROOT / "scripts" / "md" / "list_product_flow_category_children.py"
 
 
 def _utc_timestamp() -> str:

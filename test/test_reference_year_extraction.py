@@ -13,7 +13,29 @@ SAMPLE_DATASET = {
         "quantitativeReference": {"referenceToReferenceFlow": "1"},
         "geography": {"code": "CN"},
     },
-    "exchanges": {"exchange": []},
+    "exchanges": {
+        "exchange": [
+            {
+                "exchangeName": "Methanol",
+                "exchangeDirection": "Output",
+                "unit": "kg",
+                "meanAmount": "1",
+                "flowHints": {
+                    "basename": "Methanol",
+                    "treatment": "Production mix",
+                    "mix_location": "Plant average (China mainland)",
+                    "flow_properties": "1 kg",
+                    "en_synonyms": ["Methanol", "Methyl alcohol"],
+                    "zh_synonyms": "甲醇",
+                    "abbreviation": "MeOH",
+                    "state_purity": "Liquid, 99.9% purity",
+                    "source_or_pathway": "Derived from plant survey (China mainland)",
+                    "usage_context": "Reference product for methanol production",
+                    "formula_or_CAS": "CH3OH / 67-56-1",
+                },
+            }
+        ]
+    },
 }
 
 
@@ -25,10 +47,27 @@ class StaticLLM:
 
     def invoke(self, payload: dict[str, object]) -> dict[str, object]:
         prompt = str(payload.get("prompt", ""))
+        if prompt.startswith("You are enumerating"):
+            return {
+                "processes": [
+                    {
+                        "processId": "P001",
+                        "name": "Example hydrogen production",
+                        "aliases": [],
+                        "description": "Example hydrogen production",
+                        "evidence": ["test"],
+                    }
+                ]
+            }
         if prompt.startswith("You are an expert LCA analyst"):
             return {"processDataSet": deepcopy(self._dataset)}
         if prompt.startswith("You are analysing a life cycle assessment document"):
             return {"parentProcesses": []}
+        if prompt.startswith("You are selecting level"):
+            candidates = (payload.get("context") or {}).get("candidates") or []
+            choice = candidates[0]
+            level = choice.get("level", 0)
+            return {"@level": str(level), "@classId": choice.get("code", "C"), "#text": choice.get("description", "")}
         if prompt.startswith("Derive the ISIC classification path"):
             return [
                 {"@level": "0", "@classId": "C", "#text": "Manufacturing"},

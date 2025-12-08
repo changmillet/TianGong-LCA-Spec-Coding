@@ -47,7 +47,7 @@
 
 4. **执行流程编排示例（需自行实现 LLM 客户端后）**
    ```bash
-   uv run python scripts/run_test_workflow.py --skip-tidas
+   uv run python scripts/md/run_test_workflow.py --skip-tidas
    ```
    *该入口示例留作扩展，可在 `src/orchestrator` 目录中补充。*
 
@@ -111,10 +111,80 @@ uv run tidas-validate -i artifacts
 
 如需调整服务名称或地址，可直接在 `.secrets/secrets.toml` 对应节内覆盖 `service_name`、`url` 等字段，或使用实际环境变量覆盖 `LCA_*` 前缀的设置。
 
-### 将提示转换为内联代码并执行示例
+### 知识库检索自测
+
+完成 `[kb]` 凭据配置后，可以通过 `scripts/kb/retrieve.py` 直接命中知识库检索端点（`POST /datasets/{dataset_id}/retrieve`），用于核对索引是否生效、查看返回的 chunk 内容等：
+
 ```bash
-uv run python scripts/convert_prompt_to_inline.py --source-json test/data/test_process.json
+uv run python scripts/kb/retrieve.py \
+  --query "锂电池碳足迹" \
+  --top-k 5 \
+  --search-method hybrid_search \
+  --score-threshold-enabled
+```
+
+- `--retrieval-model/--retrieval-model-file`、`--search-method`、`--reranking-*` 可覆盖检索模型配置。
+- `--metadata-filters`（或同名 `-file`）允许直接传入 JSON 数组，复用 Web 控制台中的过滤条件；如果只想临时筛选，可多次使用 `--filter category:eq=battery` 这种语法并用 `--filter-operator` 控制逻辑关系。
+- 通过 `--payload/--payload-file` 可以整体覆写请求体，脚本只会在此基础上再应用命令行中的增量参数。
+- 默认以易读格式打印命中的段落，可通过 `--format json` 输出原始响应，便于进一步处理。
+
+### 将提示转换为内联代码并执行示例
+- **文献流程**
+```bash
+uv run python scripts/md/convert_prompt_to_inline.py --source-json test/data/test_process.json
 
 # 危险操作：直接执行转换后的内联prompt（请确保已了解风险）
 codex exec --dangerously-bypass-approvals-and-sandbox "$(cat inline_prompt.txt)"
 ```
+
+- **JSON-LD 数据**
+  ```bash
+  uv run python scripts/jsonld/convert_prompt_to_inline.py \
+    --prompt-path .github/prompts/convert_json.prompt.md \
+    --source-json test/data/json_ld/processes \
+    --output inline_prompt_jsonld.txt
+
+  codex exec --dangerously-bypass-approvals-and-sandbox "$(cat inline_prompt_jsonld.txt)"
+  ```
+
+### 文献 vs JSON-LD 工作流入口
+
+- **文献（非结构化）数据**：使用 `scripts/md/` 下的 Stage 1→4。
+- **JSON-LD（OpenLCA）数据**：使用 `scripts/jsonld/` 下的 Stage 1→3（或 `run_pipeline.py` 一键执行），共享相同的 `_workflow_common`/TIDAS/发布基础设施。
+
+| 数据源 | Stage 1 | Stage 2 | Stage 3 | Stage 4 | 说明 |
+|--------|---------|---------|---------|---------|------|
+| 文献 Cleantext | `scripts/md/stage1_preprocess.py` | `scripts/md/stage2_extract_processes.py` | `scripts/md/stage3_align_flows.py` | `scripts/md/stage4_publish.py` | 原始流程，LLM 提取 + FlowSearch 对齐 |
+| JSON-LD | `scripts/jsonld/stage1_jsonld_extract.py` | `scripts/jsonld/stage2_jsonld_validate.py` | `scripts/jsonld/stage3_jsonld_publish.py` | *(自动隶属于 Stage 3)* | 针对 OpenLCA JSON-LD 的 LLM 重建、校验与发布 |
+
+快速运行 JSON-LD 管线：
+
+```bash
+uv run python scripts/jsonld/run_pipeline.py \
+  --process-dir test/data/json_ld/processes \
+  --flows-dir test/data/json_ld/flows \
+  --sources-dir test/data/json_ld/sources \
+  --prompt .github/prompts/convert_json.prompt.md \
+  --secrets .secrets/secrets.toml \
+  --clean-exports \
+  --dry-run-publish
+```
+
+去掉 `--dry-run-publish` 即可在 Stage 3 真正提交至 `Database_CRUD_Tool`。
+
+若想复用 “先生成 inline prompt 再一键触发 Stage 1→Stage 3” 的工作流，可直接执行：
+
+```bash
+uv run python scripts/jsonld/jsonld_inline_run.py \
+  --process-dir test/data/json_ld/processes \
+  --flows-dir test/data/json_ld/flows \
+  --sources-dir test/data/json_ld/sources \
+  --clean-exports \
+  --dry-run-publish
+```
+
+该命令会自动将 `.github/prompts/convert_json.prompt.md` 转换为单行 `inline_prompt_jsonld.txt`，并通过 `run_pipeline.py` 调用 Stage 1→Stage 3（可使用 `--inline-only` 仅生成 inline、或 `--prompt-path` 指向自定义提示）。
+
+- Stage 1 会同时遍历 `--process-dir` 与 `--flows-dir`，并通过 LLM 输出符合 `tidas_processes.json` / `tidas_flows.json` 的数据集。结果分别缓存到 `artifacts/<run_id>/cache/stage1_process_blocks.json`、`stage1_flow_blocks.json`。
+- Stage 2 默认读取上述缓存并重映射所有 UUID；只有当 `stage1_flow_blocks.json` 不存在时，才会退回 `--json-ld-flows` 指向的原始目录进行临时转换。
+- 当流程内引用全新来源时，Stage 1 也会同步生成 `stage1_source_blocks.json`，Stage 2 将优先消费该缓存（若缺失才使用 `--json-ld-sources`）。

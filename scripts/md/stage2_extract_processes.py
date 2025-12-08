@@ -7,15 +7,26 @@ import argparse
 import json
 from pathlib import Path
 
-from _workflow_common import (
-    OpenAIResponsesLLM,
-    dump_json,
-    ensure_run_cache_dir,
-    load_secrets,
-    resolve_run_id,
-    run_cache_path,
-    save_latest_run_id,
-)
+try:
+    from scripts.md._workflow_common import (  # type: ignore
+        OpenAIResponsesLLM,
+        dump_json,
+        ensure_run_cache_dir,
+        load_secrets,
+        resolve_run_id,
+        run_cache_path,
+        save_latest_run_id,
+    )
+except ModuleNotFoundError:  # pragma: no cover - allows direct CLI execution
+    from _workflow_common import (
+        OpenAIResponsesLLM,
+        dump_json,
+        ensure_run_cache_dir,
+        load_secrets,
+        resolve_run_id,
+        run_cache_path,
+        save_latest_run_id,
+    )
 
 from tiangong_lca_spec.process_extraction import ProcessExtractionService
 
@@ -98,7 +109,7 @@ def main() -> None:
         raise SystemExit(f"Clean text file not found: {clean_text_path}")
 
     clean_text = _read_clean_text(clean_text_path)
-    api_key, model = load_secrets(args.secrets)
+    api_key, model, base_url = load_secrets(args.secrets)
     if not args.disable_cache:
         openai_cache_dir.parent.mkdir(parents=True, exist_ok=True)
         openai_cache = openai_cache_dir
@@ -110,6 +121,7 @@ def main() -> None:
         model=model,
         cache_dir=openai_cache,
         use_cache=not args.disable_cache,
+        base_url=base_url,
     )
     service = ProcessExtractionService(llm)
     process_blocks = service.extract(clean_text)

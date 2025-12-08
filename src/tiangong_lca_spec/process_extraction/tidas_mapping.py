@@ -11,8 +11,12 @@ from typing import Any
 from uuid import uuid4
 
 from tiangong_lca_spec.core.constants import build_dataset_format_reference
+from tiangong_lca_spec.core.exceptions import ProcessExtractionError
 from tiangong_lca_spec.core.uris import build_local_dataset_uri, build_portal_uri
 from tiangong_lca_spec.tidas import get_schema_repository
+from tiangong_lca_spec.tidas.process_classification_registry import (
+    ensure_valid_classification_path,
+)
 
 BASE_METADATA = {
     "@xmlns:common": "http://lca.jrc.it/ILCD/Common",
@@ -92,13 +96,14 @@ def build_tidas_process_dataset(process_dataset: dict[str, Any]) -> dict[str, An
     else:
         dataset.pop("LCIAResults", None)
     _apply_schema_normalisation(dataset)
+    _prune_invalid_reference_fields(dataset)
     return _strip_common_other(dataset)
 
 
 def _apply_root_metadata(process_dataset: dict[str, Any]) -> dict[str, Any]:
     dataset = deepcopy(process_dataset if isinstance(process_dataset, dict) else {})
     for key, value in BASE_METADATA.items():
-        dataset.setdefault(key, value)
+        dataset[key] = value
     return dataset
 
 
@@ -150,9 +155,7 @@ def _normalise_dataset_information(
     data_info: Any,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     info = _ensure_dict(data_info)
-    uuid_value = info.get("common:UUID")
-    if not isinstance(uuid_value, str) or not _is_valid_uuid(uuid_value):
-        uuid_value = str(uuid4())
+    uuid_value = str(uuid4())
     info["common:UUID"] = uuid_value
 
     identifier = _stringify(info.get("identifierOfSubDataSet")).strip()
@@ -211,26 +214,26 @@ def _normalise_dataset_information(
 
     classes = classification_info.get("common:classification", {}).get("common:class")
     if isinstance(classes, list):
-        normalised_classes: list[dict[str, Any]] = []
+        collected_entries: list[dict[str, Any]] = []
         for index, entry in enumerate(classes):
             if index >= 4:
                 break
             if not isinstance(entry, dict):
                 continue
-            class_id = entry.get("@classId") or entry.get("classId") or f"UNSPEC-{index}"
-            level = entry.get("@level") or entry.get("level") or index
-            text_value = entry.get("#text") or entry.get("text") or entry.get("@text") or class_id
-            text_value = _strip_class_code_prefix(_stringify(text_value))
-            normalised_classes.append(
+            class_id = entry.get("@classId") or entry.get("classId") or entry.get("id") or ""
+            level = entry.get("@level") or entry.get("level") or entry.get("lvl") or ""
+            text_value = entry.get("#text") or entry.get("text") or entry.get("@text") or entry.get("label") or entry.get("name") or class_id
+            collected_entries.append(
                 {
-                    "@level": str(level),
-                    "@classId": str(class_id),
-                    "#text": _stringify(text_value),
+                    "@level": str(level).strip(),
+                    "@classId": str(class_id).strip(),
+                    "#text": _strip_class_code_prefix(_stringify(text_value)),
                 }
             )
-        for entry in normalised_classes:
-            entry.pop("text", None)
-            entry.pop("@text", None)
+        try:
+            normalised_classes = ensure_valid_classification_path(tuple(collected_entries))
+        except ValueError as exc:
+            raise ProcessExtractionError(f"Invalid process classification path: {exc}") from exc
         classification_info.setdefault("common:classification", {})["common:class"] = normalised_classes
     if specification_text:
         classification_info.setdefault("common:classification", {}).setdefault("common:other", specification_text)
@@ -456,13 +459,10 @@ def _sanitize_general_comment(comment: Any) -> dict[str, Any] | str | None:
     lang = DEFAULT_LANGUAGE
     if isinstance(comment, dict):
         lang = comment.get("@xml:lang") or lang
-    if not text.startswith("FlowSearch hints:"):
+    if text.startswith("FlowSearch hints:"):
+        # Preserve the structured hint string so downstream consumers can recover the exact metadata.
         return {"@xml:lang": lang, "#text": text}
-    hints, notes = _parse_hint_segments(text[len("FlowSearch hints:") :])
-    comment_text = _compose_comment_from_hints(hints, notes)
-    if not comment_text:
-        return None
-    return {"@xml:lang": lang, "#text": comment_text}
+    return {"@xml:lang": lang, "#text": text}
 
 
 def _parse_hint_segments(text: str) -> tuple[dict[str, list[str]], list[str]]:
@@ -599,6 +599,9 @@ def _normalise_exchanges(
                 item.pop("generalComment", None)
         else:
             item.pop("generalComment", None)
+        # Remove intermediate hint structures to keep the final ILCD exchange schema-compliant.
+        item.pop("flowHints", None)
+        item.pop("hints", None)
         # Preserve genuine flow references (from alignment) but drop empty placeholders,
         # so Stage 3 can inject authoritative matches when available.
         reference = item.get("referenceToFlowDataSet")
@@ -606,7 +609,6 @@ def _normalise_exchanges(
             item.pop("referenceToFlowDataSet", None)
         if not _stringify(item.get("common:other")).strip():
             item.pop("common:other", None)
-        item.pop("exchangeName", None)
         item.pop("flowName", None)
         normalised.append(item)
         metadata.append(
@@ -1016,9 +1018,9 @@ def _build_dataset_format_reference() -> dict[str, Any]:
 
 
 def _current_timestamp() -> str:
-    """Return an ISO 8601 timestamp with timezone information."""
+    """Return an ISO 8601 timestamp ending with 'Z' (UTC)."""
 
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _build_compliance_reference() -> dict[str, Any] | None:
@@ -1059,6 +1061,57 @@ def _ensure_reference_field(
     if _has_reference(value):
         return
     container[key] = _ensure_global_reference(value, ref_type=ref_type, description=description)
+
+
+_OPTIONAL_REFERENCE_PATHS: tuple[tuple[str, ...], ...] = (
+    ("modellingAndValidation", "dataSourcesTreatmentAndRepresentativeness", "referenceToDataHandlingPrinciples"),
+    ("modellingAndValidation", "LCIMethodAndAllocation", "referenceToLCAMethodDetails"),
+    ("modellingAndValidation", "completeness", "referenceToSupportedImpactAssessmentMethods"),
+    ("administrativeInformation", "publicationAndOwnership", "common:referenceToPrecedingDataSetVersion"),
+    ("administrativeInformation", "publicationAndOwnership", "common:referenceToUnchangedRepublication"),
+    ("administrativeInformation", "publicationAndOwnership", "common:referenceToRegistrationAuthority"),
+    ("administrativeInformation", "publicationAndOwnership", "common:referenceToEntitiesWithExclusiveAccess"),
+    ("administrativeInformation", "common:commissionerAndGoal", "common:project"),
+)
+
+
+def _prune_invalid_reference_fields(dataset: dict[str, Any]) -> None:
+    for path in _OPTIONAL_REFERENCE_PATHS:
+        container: Any = dataset
+        for key in path[:-1]:
+            if not isinstance(container, dict):
+                break
+            container = container.get(key)
+        else:
+            if not isinstance(container, dict):
+                continue
+            field = path[-1]
+            value = container.get(field)
+            if value in (None, "", [], {}):
+                container.pop(field, None)
+                continue
+            if isinstance(value, str) and not value.strip():
+                container.pop(field, None)
+                continue
+            if not _contains_structured_reference(value):
+                container.pop(field, None)
+
+
+def _contains_structured_reference(value: Any) -> bool:
+    if value in (None, "", [], {}):
+        return False
+    if _has_reference(value):
+        return True
+    if isinstance(value, dict):
+        for child in value.values():
+            if isinstance(child, str) and _is_valid_uuid(child.strip()):
+                return True
+            if isinstance(child, (dict, list)) and _contains_structured_reference(child):
+                return True
+        return False
+    if isinstance(value, list):
+        return any(_contains_structured_reference(item) for item in value)
+    return False
 
 
 def _normalise_derivation_status(value: Any) -> str:
@@ -1135,6 +1188,17 @@ def _to_multilang(value: Any) -> dict[str, Any]:
     return {"@xml:lang": DEFAULT_LANGUAGE, "#text": _stringify(value)}
 
 
+def _normalize_multilang_dict(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    lang = _stringify(value.get("@xml:lang") or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE
+    for key in ("#text", "%23text", "_text", "text", "@text"):
+        if key in value and value[key] not in (None, ""):
+            text = _stringify(value[key]).strip()
+            return {"@xml:lang": lang, "#text": text}
+    return None
+
+
 def _ensure_multilang_list(value: Any) -> list[dict[str, Any]]:
     if value in (None, "", [], {}):
         return []
@@ -1203,16 +1267,18 @@ def _extract_multilang_text(value: Any) -> str:
                 parts.append(text)
         return "; ".join(parts)
     if isinstance(value, dict):
-        if "#text" in value:
-            return _stringify(value["#text"])
-        if "text" in value:
-            return _stringify(value["text"])
+        normalized = _normalize_multilang_dict(value)
+        if normalized:
+            return normalized["#text"]
+        return ""
     return _stringify(value)
 
 
 def _ensure_multilang(value: Any, *, fallback: str | None = None, separator: str = "; ") -> dict[str, Any]:
-    if isinstance(value, dict) and "@xml:lang" in value and "#text" in value:
-        return value
+    if isinstance(value, dict):
+        normalized = _normalize_multilang_dict(value)
+        if normalized:
+            return normalized
     if isinstance(value, list):
         segments = [segment for segment in (_extract_multilang_text(item).strip() for item in value) if segment]
         text = separator.join(segments)
@@ -1304,14 +1370,14 @@ def _build_process_schema_metadata(schema: dict[str, Any]) -> ProcessSchemaMetad
         is_field_node = is_property_field or is_items_field or is_additional_field
 
         if isinstance(node, dict):
-            if is_field_node and _schema_has_multilang_signature(node):
+            if is_field_node and _schema_is_multilang(node):
                 multilang_fields.add(pointer)
 
             enum_values = node.get("enum")
             if is_field_node and isinstance(enum_values, list) and enum_values:
                 enum_fields[pointer] = tuple(_collect_enum_options(node))
 
-            if is_property_field and pointer.startswith(COMPLIANCE_BASE_POINTER) and pointer != COMPLIANCE_BASE_POINTER:
+            if is_property_field and pointer.startswith(COMPLIANCE_BASE_POINTER) and pointer != COMPLIANCE_BASE_POINTER and "/properties/common:referenceToComplianceSystem/" not in pointer:
                 field_name = path[-1]
                 if field_name and field_name not in compliance_pointers:
                     compliance_pointers[field_name] = pointer
@@ -1451,7 +1517,8 @@ def _coerce_schema_fields(
     pointer = _pointer_from_path(path)
 
     if pointer in metadata.multilang_fields:
-        return _coerce_value_to_multilang(value)
+        coerced_multilang = _coerce_value_to_multilang(value)
+        return coerced_multilang
 
     enum_values = metadata.enum_fields.get(pointer)
     if enum_values:
@@ -1476,12 +1543,25 @@ def _coerce_schema_fields(
         if isinstance(properties, dict):
             for key, child_schema in properties.items():
                 if key in value:
-                    value[key] = _coerce_schema_fields(
+                    coerced_child = _coerce_schema_fields(
                         value[key],
                         child_schema,
                         path + ("properties", key),
                         metadata,
                     )
+                    if coerced_child is None:
+                        value.pop(key, None)
+                        continue
+                    if isinstance(coerced_child, str) and not coerced_child.strip():
+                        value.pop(key, None)
+                        continue
+                    if isinstance(coerced_child, list) and not coerced_child:
+                        value.pop(key, None)
+                        continue
+                    if isinstance(coerced_child, dict) and not coerced_child:
+                        value.pop(key, None)
+                        continue
+                    value[key] = coerced_child
         additional = schema.get("additionalProperties")
         if isinstance(additional, dict):
             known = set(properties or {})
@@ -1538,12 +1618,31 @@ def _schema_has_multilang_signature(schema: dict[str, Any]) -> bool:
 
 
 def _coerce_value_to_multilang(value: Any) -> Any:
+    entries: list[dict[str, Any]] = []
     if isinstance(value, list):
-        entries = _ensure_multilang_list(value)
-        if len(entries) <= 1:
-            return entries[0] if entries else {"@xml:lang": DEFAULT_LANGUAGE, "#text": ""}
-        return entries
-    return _ensure_multilang(value)
+        for item in value:
+            if item in (None, "", [], {}):
+                continue
+            normalized = _ensure_multilang(item)
+            text = normalized.get("#text", "")
+            if isinstance(text, str):
+                text = text.strip()
+            if text:
+                normalized["#text"] = text
+                entries.append(normalized)
+    else:
+        normalized = _ensure_multilang(value)
+        text = normalized.get("#text", "")
+        if isinstance(text, str):
+            text = text.strip()
+        if text:
+            normalized["#text"] = text
+            entries.append(normalized)
+    if not entries:
+        return None
+    if len(entries) == 1:
+        return entries[0]
+    return entries
 
 
 def _coerce_enum_value(value: Any, options: list[Any]) -> Any:
